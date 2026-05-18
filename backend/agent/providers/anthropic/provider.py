@@ -197,7 +197,7 @@ class AnthropicProviderSession(ProviderSession):
     def __init__(
         self,
         client: AsyncAnthropic,
-        model: Llm,
+        model: str | Llm,
         prompt_messages: List[ChatCompletionMessageParam],
         tools: List[Dict[str, Any]],
     ):
@@ -210,8 +210,10 @@ class AnthropicProviderSession(ProviderSession):
         self._messages = claude_messages
 
     async def stream_turn(self, on_event: EventSink) -> ProviderTurn:
+        # 自定义模型直接用字符串，已知 Llm 值用 .value
+        model_name = self._model if isinstance(self._model, str) else self._model.value
         stream_kwargs: Dict[str, Any] = {
-            "model": self._model.value,
+            "model": model_name,
             "max_tokens": 50000,
             "system": self._system_prompt,
             "messages": self._messages,
@@ -219,21 +221,25 @@ class AnthropicProviderSession(ProviderSession):
             "cache_control": {"type": "ephemeral"},
         }
 
-        if self._model.value in ADAPTIVE_THINKING_MODELS:
-            stream_kwargs["thinking"] = {
-                "type": "adaptive",
-            }
-            effort = (
-                "high"
-                if self._model.value == Llm.CLAUDE_SONNET_4_6.value
-                else "max"
-            )
-            stream_kwargs["output_config"] = {"effort": effort}
-        elif self._model.value in THINKING_MODELS:
-            stream_kwargs["thinking"] = {
-                "type": "enabled",
-                "budget_tokens": 10000,
-            }
+        # 自定义模型不配置 thinking；已知 Llm 值按配置表
+        if isinstance(self._model, Llm):
+            if self._model.value in ADAPTIVE_THINKING_MODELS:
+                stream_kwargs["thinking"] = {
+                    "type": "adaptive",
+                }
+                effort = (
+                    "high"
+                    if self._model.value == Llm.CLAUDE_SONNET_4_6.value
+                    else "max"
+                )
+                stream_kwargs["output_config"] = {"effort": effort}
+            elif self._model.value in THINKING_MODELS:
+                stream_kwargs["thinking"] = {
+                    "type": "enabled",
+                    "budget_tokens": 10000,
+                }
+            else:
+                stream_kwargs["temperature"] = 0.0
         else:
             stream_kwargs["temperature"] = 0.0
 
@@ -288,7 +294,7 @@ class AnthropicProviderSession(ProviderSession):
 
     async def close(self) -> None:
         u = self._total_usage
-        model_name = self._model.value
+        model_name = self._model if isinstance(self._model, str) else self._model.value
         pricing = MODEL_PRICING.get(model_name)
         cost_str = f" cost=${u.cost(pricing):.4f}" if pricing else ""
         cache_hit_rate_str = f" cache_hit_rate={u.cache_hit_rate_percent():.2f}%"

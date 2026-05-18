@@ -214,16 +214,19 @@ class App {
 
   async setupLocalStorage() {
     const setting = {
+      selectedApiProvider: "openai",
       openAiApiKey: "test-openai-key",
       openAiBaseURL: null,
       anthropicApiKey: "test-anthropic-key",
+      anthropicBaseURL: null,
+      geminiApiKey: null,
+      geminiBaseURL: null,
       screenshotOneApiKey: "test-screenshotone-key",
       isImageGenerationEnabled: true,
       editorTheme: "cobalt",
       generatedCodeConfig: this.stack,
       codeGenerationModel: this.model,
       isTermOfServiceAccepted: true,
-      accessCode: null,
     };
 
     await this.page.evaluate((nextSetting) => {

@@ -120,10 +120,17 @@ class AgentToolRuntime:
         content: str,
         old_text: str,
         new_text: str,
-        count: Optional[int],
+        count: Optional[int] | str,
     ) -> Tuple[str, int]:
         if old_text not in content:
             return content, 0
+
+        # LLM 可能将 count 作为字符串传入，需要转为 int
+        if isinstance(count, str):
+            try:
+                count = int(count)
+            except ValueError:
+                count = None
 
         if count is None:
             replace_count = 1

@@ -8,7 +8,9 @@ import openai
 from websockets.exceptions import ConnectionClosedOK, ConnectionClosedError
 from config import (
     ANTHROPIC_API_KEY,
+    ANTHROPIC_BASE_URL,
     GEMINI_API_KEY,
+    GEMINI_BASE_URL,
     IS_DEBUG_ENABLED,
     IS_PROD,
     NUM_VARIANTS,
@@ -83,7 +85,7 @@ class PipelineContext:
     params: Dict[str, Any] = field(default_factory=dict)
     extracted_params: "ExtractedParams | None" = None
     prompt_messages: List[ChatCompletionMessageParam] = field(default_factory=list)
-    variant_models: List[Llm] = field(default_factory=list)
+    variant_models: List[str | Llm] = field(default_factory=list)
     completions: List[str] = field(default_factory=list)
     variant_completions: Dict[int, str] = field(default_factory=dict)
     metadata: Dict[str, Any] = field(default_factory=dict)
@@ -231,11 +233,15 @@ class ExtractedParams:
     anthropic_api_key: str | None
     gemini_api_key: str | None
     openai_base_url: str | None
+    anthropic_base_url: str | None
+    gemini_base_url: str | None
     generation_type: Literal["create", "update"]
     prompt: UserTurnInput
     history: List[PromptHistoryMessage]
     file_state: Dict[str, str] | None
     option_codes: List[str]
+    code_generation_model: str | None = None
+    selected_api_provider: str | None = None
     design_system: str | None = None
 
 
@@ -285,6 +291,20 @@ class ParameterExtractionStage:
         if not openai_base_url:
             print("Using official OpenAI URL")
 
+        # Base URL for Anthropic API
+        anthropic_base_url: str | None = None
+        if not IS_PROD:
+            anthropic_base_url = self._get_from_settings_dialog_or_env(
+                params, "anthropicBaseURL", ANTHROPIC_BASE_URL
+            )
+
+        # Base URL for Gemini API
+        gemini_base_url: str | None = None
+        if not IS_PROD:
+            gemini_base_url = self._get_from_settings_dialog_or_env(
+                params, "geminiBaseURL", GEMINI_BASE_URL
+            )
+
         # Get the image generation flag from the request. Fall back to True if not provided.
         should_generate_images = bool(params.get("isImageGenerationEnabled", True))
 
@@ -330,6 +350,20 @@ class ParameterExtractionStage:
             else None
         )
 
+        # 提取用户选择的生成模型（可能是已知 Llm 值或自定义模型 ID）
+        code_generation_model = params.get("codeGenerationModel")
+        if isinstance(code_generation_model, str) and code_generation_model.strip():
+            code_generation_model = code_generation_model.strip()
+        else:
+            code_generation_model = None
+
+        # 提取用户选择的 API provider（用于自定义模型路由到对应 provider 的选择集）
+        selected_api_provider = params.get("selectedApiProvider")
+        if isinstance(selected_api_provider, str) and selected_api_provider.strip():
+            selected_api_provider = selected_api_provider.strip()
+        else:
+            selected_api_provider = None
+
         return ExtractedParams(
             stack=validated_stack,
             input_mode=validated_input_mode,
@@ -338,11 +372,15 @@ class ParameterExtractionStage:
             anthropic_api_key=anthropic_api_key,
             gemini_api_key=gemini_api_key,
             openai_base_url=openai_base_url,
+            anthropic_base_url=anthropic_base_url,
+            gemini_base_url=gemini_base_url,
             generation_type=generation_type,
             prompt=prompt,
             history=history,
             file_state=file_state,
             option_codes=option_codes,
+            code_generation_model=code_generation_model,
+            selected_api_provider=selected_api_provider,
             design_system=design_system,
         )
 
@@ -375,8 +413,10 @@ class ModelSelectionStage:
         openai_api_key: str | None,
         anthropic_api_key: str | None,
         gemini_api_key: str | None = None,
-    ) -> List[Llm]:
-        """Select appropriate models based on available API keys"""
+        code_generation_model: str | None = None,
+        selected_api_provider: str | None = None,
+    ) -> List[str | Llm]:
+        """根据可用的 API Keys 选择模型"""
         try:
             num_variants = 2 if generation_type == "update" else NUM_VARIANTS
             variant_models = self._get_variant_models(
@@ -386,12 +426,15 @@ class ModelSelectionStage:
                 openai_api_key,
                 anthropic_api_key,
                 gemini_api_key,
+                code_generation_model,
+                selected_api_provider,
             )
 
-            # Print the variant models (one per line)
+            # 打印 variant 模型列表
             print("Variant models:")
             for index, model in enumerate(variant_models):
-                print(f"Variant {index + 1}: {model.value}")
+                model_name = model if isinstance(model, str) else model.value
+                print(f"Variant {index + 1}: {model_name}")
 
             return variant_models
         except Exception:
@@ -410,10 +453,12 @@ class ModelSelectionStage:
         openai_api_key: str | None,
         anthropic_api_key: str | None,
         gemini_api_key: str | None,
-    ) -> List[Llm]:
-        """Simple model cycling that scales with num_variants"""
+        code_generation_model: str | None = None,
+        selected_api_provider: str | None = None,
+    ) -> List[str | Llm]:
+        """根据 API Keys 和模型选择生成 variant 模型列表"""
 
-        # Video mode requires Gemini - 2 variants for comparison
+        # 视频模式必须使用 Gemini
         if input_mode == "video":
             if not gemini_api_key:
                 raise Exception(
@@ -421,6 +466,12 @@ class ModelSelectionStage:
                     "Please add GEMINI_API_KEY to backend/.env or in the settings dialog"
                 )
             return list(VIDEO_VARIANT_MODELS)
+
+        # 自定义模型（不在 Llm enum 中）：所有 variant 直接使用该模型字符串
+        if code_generation_model and code_generation_model not in {
+            m.value for m in Llm
+        }:
+            return [code_generation_model] * num_variants
 
         # Define models based on available API keys
         if gemini_api_key and anthropic_api_key and openai_api_key:
@@ -509,23 +560,29 @@ class AgenticGenerationStage:
         openai_api_key: str | None,
         openai_base_url: str | None,
         anthropic_api_key: str | None,
+        anthropic_base_url: str | None,
         gemini_api_key: str | None,
+        gemini_base_url: str | None,
         should_generate_images: bool,
         file_state: Dict[str, str] | None,
         option_codes: List[str] | None,
+        selected_api_provider: str | None = None,
     ):
         self.send_message = send_message
         self.openai_api_key = openai_api_key
         self.openai_base_url = openai_base_url
         self.anthropic_api_key = anthropic_api_key
+        self.anthropic_base_url = anthropic_base_url
         self.gemini_api_key = gemini_api_key
+        self.gemini_base_url = gemini_base_url
         self.should_generate_images = should_generate_images
         self.file_state = file_state
         self.option_codes = option_codes or []
+        self.selected_api_provider = selected_api_provider
 
     async def process_variants(
         self,
-        variant_models: List[Llm],
+        variant_models: List[str | Llm],
         prompt_messages: List[ChatCompletionMessageParam],
     ) -> Dict[int, str]:
         tasks: List[asyncio.Task[str]] = []
@@ -550,7 +607,7 @@ class AgenticGenerationStage:
     async def _run_variant(
         self,
         index: int,
-        model: Llm,
+        model: str | Llm,
         prompt_messages: List[ChatCompletionMessageParam],
     ) -> str:
         try:
@@ -575,12 +632,14 @@ class AgenticGenerationStage:
                 openai_api_key=self.openai_api_key,
                 openai_base_url=self.openai_base_url,
                 anthropic_api_key=self.anthropic_api_key,
+                anthropic_base_url=self.anthropic_base_url,
                 gemini_api_key=self.gemini_api_key,
+                gemini_base_url=self.gemini_base_url,
                 should_generate_images=self.should_generate_images,
                 initial_file_state=self.file_state,
                 option_codes=self.option_codes,
             )
-            completion = await runner.run(model, prompt_messages)
+            completion = await runner.run(model, prompt_messages, selected_api_provider=self.selected_api_provider)
             if completion:
                 await self.send_message("setCode", completion, index, None, None)
             await self.send_message(
@@ -737,13 +796,15 @@ class CodeGenerationMiddleware(Middleware):
                 openai_api_key=context.extracted_params.openai_api_key,
                 anthropic_api_key=context.extracted_params.anthropic_api_key,
                 gemini_api_key=context.extracted_params.gemini_api_key,
+                code_generation_model=context.extracted_params.code_generation_model,
+                selected_api_provider=context.extracted_params.selected_api_provider,
             )
             if IS_DEBUG_ENABLED:
                 await context.send_message(
                     "variantModels",
                     None,
                     0,
-                    {"models": [model.value for model in context.variant_models]},
+                    {"models": [model if isinstance(model, str) else model.value for model in context.variant_models]},
                     None,
                 )
 
@@ -752,10 +813,13 @@ class CodeGenerationMiddleware(Middleware):
                 openai_api_key=context.extracted_params.openai_api_key,
                 openai_base_url=context.extracted_params.openai_base_url,
                 anthropic_api_key=context.extracted_params.anthropic_api_key,
+                anthropic_base_url=context.extracted_params.anthropic_base_url,
                 gemini_api_key=context.extracted_params.gemini_api_key,
+                gemini_base_url=context.extracted_params.gemini_base_url,
                 should_generate_images=context.extracted_params.should_generate_images,
                 file_state=context.extracted_params.file_state,
                 option_codes=context.extracted_params.option_codes,
+                selected_api_provider=context.extracted_params.selected_api_provider,
             )
 
             context.variant_completions = await generation_stage.process_variants(

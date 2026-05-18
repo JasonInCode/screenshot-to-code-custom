@@ -1,10 +1,7 @@
 import { useProjectStore } from "../../store/project-store";
 import { useEffect, useRef, useState } from "react";
 import { useThrottle } from "../../hooks/useThrottle";
-import {
-  CODE_GENERATION_MODEL_DESCRIPTIONS,
-  CodeGenerationModel,
-} from "../../lib/models";
+import { getModelDisplayName } from "../../lib/models";
 import WorkingPulse from "../core/WorkingPulse";
 
 const IFRAME_WIDTH = 1280;
@@ -127,7 +124,7 @@ function Variants() {
                   ? "ring-2 ring-blue-400 dark:ring-blue-500"
                   : "ring-1 ring-gray-200 dark:ring-gray-700 hover:ring-gray-300 dark:hover:ring-gray-600"
               }`}
-              title={variant.model ? (CODE_GENERATION_MODEL_DESCRIPTIONS[variant.model as CodeGenerationModel]?.name || variant.model) : undefined}
+              title={variant.model ? getModelDisplayName(variant.model) : undefined}
               onClick={() => handleVariantClick(index)}
             >
               <VariantThumbnail

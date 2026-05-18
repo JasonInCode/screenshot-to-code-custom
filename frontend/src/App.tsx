@@ -85,10 +85,13 @@ function App() {
   // Settings
   const [settings, setSettings] = usePersistedState<Settings>(
     {
+      selectedApiProvider: "openai",
       openAiApiKey: null,
       openAiBaseURL: null,
       anthropicApiKey: null,
+      anthropicBaseURL: null,
       geminiApiKey: null,
+      geminiBaseURL: null,
       screenshotOneApiKey: null,
       isImageGenerationEnabled: true,
       editorTheme: EditorTheme.COBALT,
@@ -182,6 +185,18 @@ function App() {
       setSettings((prev) => ({
         ...prev,
         selectedDesignSystemId: null,
+      }));
+    }
+  }, [settings, setSettings]);
+
+  // 新增字段的 localStorage 迁移：确保老用户数据包含新增的设置项
+  useEffect(() => {
+    if (!("selectedApiProvider" in settings)) {
+      setSettings((prev) => ({
+        ...prev,
+        selectedApiProvider: "openai",
+        anthropicBaseURL: null,
+        geminiBaseURL: null,
       }));
     }
   }, [settings, setSettings]);

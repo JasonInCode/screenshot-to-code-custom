@@ -408,7 +408,7 @@ class OpenAIProviderSession(ProviderSession):
     def __init__(
         self,
         client: AsyncOpenAI,
-        model: Llm,
+        model: str | Llm,
         prompt_messages: List[ChatCompletionMessageParam],
         tools: List[Dict[str, Any]],
     ):
@@ -425,7 +425,8 @@ class OpenAIProviderSession(ProviderSession):
         ]
 
     async def stream_turn(self, on_event: EventSink) -> ProviderTurn:
-        model_name = get_openai_api_name(self._model)
+        # 自定义模型直接用字符串，已知 Llm 值用配置表
+        model_name = self._model if isinstance(self._model, str) else get_openai_api_name(self._model)
         params: Dict[str, Any] = {
             "model": model_name,
             "input": self._input_items,
@@ -436,9 +437,11 @@ class OpenAIProviderSession(ProviderSession):
         }
         if model_name == "gpt-5.4-2026-03-05":
             params["prompt_cache_retention"] = "24h"
-        reasoning_effort = get_openai_reasoning_effort(self._model)
-        if reasoning_effort:
-            params["reasoning"] = {"effort": reasoning_effort, "summary": "auto"}
+        # 自定义模型不配置 reasoning_effort；已知 Llm 值使用配置表
+        if isinstance(self._model, Llm):
+            reasoning_effort = get_openai_reasoning_effort(self._model)
+            if reasoning_effort:
+                params["reasoning"] = {"effort": reasoning_effort, "summary": "auto"}
 
         self._turn_input_logger.record_turn_input(
             self._input_items,
@@ -478,7 +481,7 @@ class OpenAIProviderSession(ProviderSession):
 
     async def close(self) -> None:
         u = self._total_usage
-        model_name = get_openai_api_name(self._model)
+        model_name = self._model if isinstance(self._model, str) else get_openai_api_name(self._model)
         pricing = MODEL_PRICING.get(model_name)
         cost_str = f" cost=${u.cost(pricing):.4f}" if pricing else ""
         cache_hit_rate_str = f" cache_hit_rate={u.cache_hit_rate_percent():.2f}%"

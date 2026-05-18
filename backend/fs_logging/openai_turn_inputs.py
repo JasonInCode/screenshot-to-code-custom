@@ -87,8 +87,8 @@ def _render_copy_controls(copy_target_id: str, button_label: str) -> str:
         "</div>"
     )
 
-def _log_openai_turn_input(model: Llm, turn_index: int, input_items: Sequence[Any]) -> None:
-    model_name = get_openai_api_name(model)
+def _log_openai_turn_input(model: str | Llm, turn_index: int, input_items: Sequence[Any]) -> None:
+    model_name = model if isinstance(model, str) else get_openai_api_name(model)
     print(
         f"[OPENAI TURN INPUT] model={model_name} "
         f"turn={turn_index} items={len(input_items)}"
@@ -133,7 +133,7 @@ class OpenAITurnInputReport:
 
 @dataclass
 class OpenAITurnInputLogger:
-    model: Llm
+    model: str | Llm
     enabled: bool = False
     report_id: str = field(default_factory=lambda: uuid.uuid4().hex)
     _turn_index: int = 0

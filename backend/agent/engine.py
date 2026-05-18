@@ -30,7 +30,9 @@ class AgentEngine:
         openai_api_key: Optional[str],
         openai_base_url: Optional[str],
         anthropic_api_key: Optional[str],
+        anthropic_base_url: Optional[str],
         gemini_api_key: Optional[str],
+        gemini_base_url: Optional[str],
         should_generate_images: bool,
         initial_file_state: Optional[Dict[str, str]] = None,
         option_codes: Optional[List[str]] = None,
@@ -40,7 +42,9 @@ class AgentEngine:
         self.openai_api_key = openai_api_key
         self.openai_base_url = openai_base_url
         self.anthropic_api_key = anthropic_api_key
+        self.anthropic_base_url = anthropic_base_url
         self.gemini_api_key = gemini_api_key
+        self.gemini_base_url = gemini_base_url
         self.should_generate_images = should_generate_images
 
         self.file_state = AgentFileState()
@@ -225,7 +229,7 @@ class AgentEngine:
 
         raise Exception("Agent exceeded max tool turns")
 
-    async def run(self, model: Llm, prompt_messages: List[ChatCompletionMessageParam]) -> str:
+    async def run(self, model: str | Llm, prompt_messages: List[ChatCompletionMessageParam], selected_api_provider: str | None = None) -> str:
         seed_file_state_from_messages(self.file_state, prompt_messages)
 
         session = create_provider_session(
@@ -235,7 +239,10 @@ class AgentEngine:
             openai_api_key=self.openai_api_key,
             openai_base_url=self.openai_base_url,
             anthropic_api_key=self.anthropic_api_key,
+            anthropic_base_url=self.anthropic_base_url,
             gemini_api_key=self.gemini_api_key,
+            gemini_base_url=self.gemini_base_url,
+            selected_api_provider=selected_api_provider,
         )
         try:
             return await self._run_with_session(session)

@@ -261,7 +261,7 @@ class GeminiProviderSession(ProviderSession):
     def __init__(
         self,
         client: genai.Client,
-        model: Llm,
+        model: str | Llm,
         prompt_messages: List[ChatCompletionMessageParam],
         tools: List[types.Tool],
     ):
@@ -276,7 +276,8 @@ class GeminiProviderSession(ProviderSession):
         ]
 
     async def stream_turn(self, on_event: EventSink) -> ProviderTurn:
-        thinking_level = _get_thinking_level_for_model(self._model)
+        # 自定义模型用默认 thinking_level，已知 Llm 值按配置函数
+        thinking_level = _get_thinking_level_for_model(self._model) if isinstance(self._model, Llm) else "minimal"
         config = types.GenerateContentConfig(
             temperature=1.0,
             max_output_tokens=50000,
@@ -289,7 +290,7 @@ class GeminiProviderSession(ProviderSession):
         )
 
         stream = await self._client.aio.models.generate_content_stream(
-            model=_get_gemini_api_model_name(self._model),
+            model=self._model if isinstance(self._model, str) else _get_gemini_api_model_name(self._model),
             contents=cast(Any, self._contents),
             config=config,
         )
@@ -343,7 +344,7 @@ class GeminiProviderSession(ProviderSession):
 
     async def close(self) -> None:
         u = self._total_usage
-        model_name = _get_gemini_api_model_name(self._model)
+        model_name = self._model if isinstance(self._model, str) else _get_gemini_api_model_name(self._model)
         pricing = MODEL_PRICING.get(model_name)
         cost_str = f" cost=${u.cost(pricing):.4f}" if pricing else ""
         cache_hit_rate_str = f" cache_hit_rate={u.cache_hit_rate_percent():.2f}%"

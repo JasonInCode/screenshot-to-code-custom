@@ -1,5 +1,6 @@
 import { Stack } from "./lib/stacks";
-import { CodeGenerationModel } from "./lib/models";
+
+export type ApiProvider = "openai" | "anthropic" | "gemini";
 
 export enum EditorTheme {
   ESPRESSO = "espresso",
@@ -13,18 +14,21 @@ export enum AppTheme {
 }
 
 export interface Settings {
+  selectedApiProvider: ApiProvider;
   openAiApiKey: string | null;
   openAiBaseURL: string | null;
+  anthropicApiKey: string | null;
+  anthropicBaseURL: string | null;
+  geminiApiKey: string | null;
+  geminiBaseURL: string | null;
   screenshotOneApiKey: string | null;
   isImageGenerationEnabled: boolean;
   editorTheme: EditorTheme;
   generatedCodeConfig: Stack;
-  codeGenerationModel: CodeGenerationModel;
+  codeGenerationModel: string;
   selectedDesignSystemId: string | null;
   // Only relevant for hosted version
   isTermOfServiceAccepted: boolean;
-  anthropicApiKey: string | null;
-  geminiApiKey: string | null;
 }
 
 export interface DesignSystem {

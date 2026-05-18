@@ -13,10 +13,15 @@ import WorkingPulse from "../core/WorkingPulse";
 import ImageLightbox from "../ImageLightbox";
 import { Commit } from "../commits/types";
 import { removeHighlight } from "../select-and-edit/utils";
-import { CodeGenerationModel } from "../../lib/models";
 import DesignSystemSelector, {
   DesignSystemSelectorProps,
 } from "../settings/DesignSystemSelector";
+
+// 已知的慢速 Gemini 模型 ID
+const SLOW_GEMINI_MODEL_IDS = [
+  "gemini-3.1-pro-preview (high thinking)",
+  "gemini-3.1-pro-preview (medium thinking)",
+];
 
 interface SidebarProps {
   showSelectAndEditFeature: boolean;
@@ -62,10 +67,7 @@ function getSelectedElementTag(commit: Commit | null): string | null {
 }
 
 function isSlowGeminiModel(model?: string): boolean {
-  return (
-    model === CodeGenerationModel.GEMINI_3_1_PRO_PREVIEW_HIGH ||
-    model === CodeGenerationModel.GEMINI_3_1_PRO_PREVIEW_MEDIUM
-  );
+  return !!model && SLOW_GEMINI_MODEL_IDS.includes(model);
 }
 
 function Sidebar({

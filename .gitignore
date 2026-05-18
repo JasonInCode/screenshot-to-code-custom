@@ -1,6 +1,18 @@
 .aider*
 node_modules
 
+# IDE
+.idea/
+
+# Claude Code worktree artifacts
+.claude/worktrees/
+
+# Superpowers planning docs
+docs/superpowers/
+
+# Superpowers brainstorming artifacts
+.superpowers/
+
 # Project-related files
 
 # Run logs

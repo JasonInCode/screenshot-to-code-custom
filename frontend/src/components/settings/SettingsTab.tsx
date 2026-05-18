@@ -1,5 +1,5 @@
 import React from "react";
-import { AppTheme, EditorTheme, Settings } from "../../types";
+import { AppTheme, ApiProvider, EditorTheme, Settings } from "../../types";
 import { capitalize } from "../../lib/utils";
 import {
   Select,
@@ -9,7 +9,8 @@ import {
 } from "../ui/select";
 import { Input } from "../ui/input";
 import { Switch } from "../ui/switch";
-import { IS_RUNNING_ON_CLOUD } from "../../config";
+import { ApiProviderSelector } from "./ApiProviderSelector";
+import { ApiProviderConfig } from "./ApiProviderConfig";
 
 interface Props {
   settings: Settings;
@@ -110,94 +111,18 @@ function SettingsTab({ settings, setSettings, appTheme, setAppTheme }: Props) {
                 API Keys
               </h2>
             </div>
-            <div className="space-y-4 p-4">
-              <div>
-                <p className="text-sm font-medium text-gray-700 dark:text-zinc-300">
-                  OpenAI API key
-                </p>
-                <p className="mt-1 text-xs text-gray-500 dark:text-zinc-400">
-                  Only stored in your browser. Never stored on servers. Overrides
-                  your .env config.
-                </p>
-                <Input
-                  id="openai-api-key"
-                  className="mt-2"
-                  placeholder="OpenAI API key"
-                  value={settings.openAiApiKey || ""}
-                  onChange={(e) =>
-                    setSettings((s) => ({
-                      ...s,
-                      openAiApiKey: e.target.value,
-                    }))
-                  }
-                />
-              </div>
-
-              {!IS_RUNNING_ON_CLOUD && (
-                <div>
-                  <p className="text-sm font-medium text-gray-700 dark:text-zinc-300">
-                    OpenAI Base URL (optional)
-                  </p>
-                  <p className="mt-1 text-xs text-gray-500 dark:text-zinc-400">
-                    Replace with a proxy URL if you don't want to use the
-                    default.
-                  </p>
-                  <Input
-                    id="openai-base-url"
-                    className="mt-2"
-                    placeholder="OpenAI Base URL"
-                    value={settings.openAiBaseURL || ""}
-                    onChange={(e) =>
-                      setSettings((s) => ({
-                        ...s,
-                        openAiBaseURL: e.target.value,
-                      }))
-                    }
-                  />
-                </div>
-              )}
-
-              <div>
-                <p className="text-sm font-medium text-gray-700 dark:text-zinc-300">
-                  Anthropic API key
-                </p>
-                <p className="mt-1 text-xs text-gray-500 dark:text-zinc-400">
-                  Only stored in your browser. Never stored on servers. Overrides
-                  your .env config.
-                </p>
-                <Input
-                  id="anthropic-api-key"
-                  className="mt-2"
-                  placeholder="Anthropic API key"
-                  value={settings.anthropicApiKey || ""}
-                  onChange={(e) =>
-                    setSettings((s) => ({
-                      ...s,
-                      anthropicApiKey: e.target.value,
-                    }))
-                  }
-                />
-              </div>
-
-              <div>
-                <p className="text-sm font-medium text-gray-700 dark:text-zinc-300">
-                  Gemini API key
-                </p>
-                <p className="mt-1 text-xs text-gray-500 dark:text-zinc-400">
-                  Only stored in your browser. Never stored on servers. Overrides
-                  your .env config.
-                </p>
-                <Input
-                  id="gemini-api-key"
-                  className="mt-2"
-                  placeholder="Gemini API key"
-                  value={settings.geminiApiKey || ""}
-                  onChange={(e) =>
-                    setSettings((s) => ({
-                      ...s,
-                      geminiApiKey: e.target.value,
-                    }))
-                  }
+            <div className="p-4">
+              <ApiProviderSelector
+                value={settings.selectedApiProvider}
+                onChange={(provider: ApiProvider) =>
+                  setSettings((s) => ({ ...s, selectedApiProvider: provider }))
+                }
+              />
+              <div className="border-t border-dashed border-gray-200 dark:border-zinc-600 mt-3 pt-4">
+                <ApiProviderConfig
+                  provider={settings.selectedApiProvider}
+                  settings={settings}
+                  setSettings={setSettings}
                 />
               </div>
             </div>

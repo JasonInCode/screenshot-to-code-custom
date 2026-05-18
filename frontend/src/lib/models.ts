@@ -1,3 +1,5 @@
+import { ApiProvider } from "../types";
+
 // Keep in sync with backend (llm.py)
 // Order here matches dropdown order
 export enum CodeGenerationModel {
@@ -20,10 +22,12 @@ export enum CodeGenerationModel {
   GEMINI_3_1_PRO_PREVIEW_LOW = "gemini-3.1-pro-preview (low thinking)",
 }
 
-// Will generate a static error if a model in the enum above is not in the descriptions
-export const CODE_GENERATION_MODEL_DESCRIPTIONS: {
-  [key in CodeGenerationModel]: { name: string; inBeta: boolean };
-} = {
+// 已知预设模型的描述信息
+// 类型使用 Record<string, ...> 以支持对自定义模型 ID 的查找（自定义模型不在字典中则返回 undefined）
+export const CODE_GENERATION_MODEL_DESCRIPTIONS: Record<
+  string,
+  { name: string; inBeta: boolean }
+> = {
   "gpt-5.2-codex (low thinking)": {
     name: "GPT 5.2 Codex (low)",
     inBeta: true,
@@ -81,3 +85,57 @@ export const CODE_GENERATION_MODEL_DESCRIPTIONS: {
     inBeta: true,
   },
 };
+
+// API 提供商分组常量
+
+export const OPENAI_PRESET_MODELS: string[] = [
+  CodeGenerationModel.GPT_5_2_CODEX_LOW,
+  CodeGenerationModel.GPT_5_2_CODEX_MEDIUM,
+  CodeGenerationModel.GPT_5_2_CODEX_HIGH,
+  CodeGenerationModel.GPT_5_2_CODEX_XHIGH,
+  CodeGenerationModel.GPT_5_3_CODEX_LOW,
+  CodeGenerationModel.GPT_5_3_CODEX_MEDIUM,
+  CodeGenerationModel.GPT_5_3_CODEX_HIGH,
+  CodeGenerationModel.GPT_5_3_CODEX_XHIGH,
+];
+
+export const ANTHROPIC_PRESET_MODELS: string[] = [
+  CodeGenerationModel.CLAUDE_OPUS_4_6,
+  CodeGenerationModel.CLAUDE_SONNET_4_6,
+  CodeGenerationModel.CLAUDE_4_5_OPUS_2025_11_01,
+  CodeGenerationModel.CLAUDE_4_5_SONNET_2025_09_29,
+];
+
+export const GEMINI_PRESET_MODELS: string[] = [
+  CodeGenerationModel.GEMINI_3_FLASH_PREVIEW_HIGH,
+  CodeGenerationModel.GEMINI_3_FLASH_PREVIEW_MINIMAL,
+  CodeGenerationModel.GEMINI_3_1_PRO_PREVIEW_HIGH,
+  CodeGenerationModel.GEMINI_3_1_PRO_PREVIEW_MEDIUM,
+  CodeGenerationModel.GEMINI_3_1_PRO_PREVIEW_LOW,
+];
+
+export const PRESET_MODELS_BY_PROVIDER: Record<ApiProvider, string[]> = {
+  openai: OPENAI_PRESET_MODELS,
+  anthropic: ANTHROPIC_PRESET_MODELS,
+  gemini: GEMINI_PRESET_MODELS,
+};
+
+// API 提供商显示名称
+export const API_PROVIDER_LABELS: Record<ApiProvider, string> = {
+  openai: "OpenAI",
+  anthropic: "Anthropic",
+  gemini: "Gemini",
+};
+
+export const DEFAULT_BASE_URLS: Record<ApiProvider, string> = {
+  openai: "https://api.openai.com/v1",
+  anthropic: "https://api.anthropic.com",
+  gemini: "https://generativelanguage.googleapis.com",
+};
+
+// 获取模型显示名称：已知预设模型返回友好名称，自定义模型直接显示原始 ID
+export function getModelDisplayName(modelValue: string): string {
+  const desc = CODE_GENERATION_MODEL_DESCRIPTIONS[modelValue];
+  if (desc) return desc.name;
+  return modelValue; // 自定义模型直接显示原始 ID
+}
