@@ -1,6 +1,7 @@
 import { Stack } from "./lib/stacks";
 
 export type ApiProvider = "openai" | "anthropic" | "gemini";
+export type ImageGenerationProvider = "openai" | "dashscope";
 
 export enum EditorTheme {
   ESPRESSO = "espresso",
@@ -23,6 +24,11 @@ export interface Settings {
   geminiBaseURL: string | null;
   screenshotOneApiKey: string | null;
   isImageGenerationEnabled: boolean;
+  // 图片生成自定义配置
+  imageGenerationBaseUrl: string | null;
+  imageGenerationApiKey: string | null;
+  imageGenerationModel: string | null;
+  imageGenerationProvider: ImageGenerationProvider;
   editorTheme: EditorTheme;
   generatedCodeConfig: Stack;
   codeGenerationModel: string;

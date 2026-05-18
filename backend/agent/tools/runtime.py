@@ -1,6 +1,7 @@
 # pyright: reportUnknownVariableType=false
 import asyncio
 import difflib
+import json
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from codegen.utils import extract_html_content
@@ -21,12 +22,20 @@ class AgentToolRuntime:
         openai_api_key: Optional[str],
         openai_base_url: Optional[str],
         option_codes: Optional[List[str]] = None,
+        image_generation_base_url: Optional[str] = None,
+        image_generation_api_key: Optional[str] = None,
+        image_generation_model: Optional[str] = None,
+        image_generation_provider: Optional[str] = None,
     ):
         self.file_state = file_state
         self.should_generate_images = should_generate_images
         self.openai_api_key = openai_api_key
         self.openai_base_url = openai_base_url
         self.option_codes = option_codes or []
+        self.image_generation_base_url = image_generation_base_url
+        self.image_generation_api_key = image_generation_api_key
+        self.image_generation_model = image_generation_model
+        self.image_generation_provider = image_generation_provider
 
     async def execute(self, tool_call: ToolCall) -> ToolExecutionResult:
         if "INVALID_JSON" in tool_call.arguments:
@@ -230,6 +239,14 @@ class AgentToolRuntime:
             )
 
         prompts = args.get("prompts") or []
+
+        # LLM 可能将 prompts 作为 JSON 字符串传入，需要解析为列表
+        if isinstance(prompts, str):
+            try:
+                prompts = json.loads(prompts)
+            except (json.JSONDecodeError, ValueError):
+                prompts = []
+
         if not isinstance(prompts, list) or not prompts:
             return ToolExecutionResult(
                 ok=False,
@@ -245,22 +262,36 @@ class AgentToolRuntime:
                 result={"error": "No valid prompts provided"},
                 summary={"error": "No valid prompts"},
             )
-        if REPLICATE_API_KEY:
+        # 📝 确定图片生成配置（自定义优先，fallback 到原有逻辑）
+        api_key = self.image_generation_api_key or self.openai_api_key
+        base_url = self.image_generation_base_url or self.openai_base_url
+
+        # 自定义模型名称优先
+        model_name = self.image_generation_model or "dall-e-3"
+
+        # 📝 确定图片生成 provider：用户指定优先，否则按 key 优先级自动选择
+        # provider 值: "dashscope" / "openai" / "flux"
+        provider = self.image_generation_provider
+        if provider == "dashscope":
+            model = "dashscope"
+        elif provider == "openai" or self.image_generation_api_key:
+            model = "dalle3"
+        elif REPLICATE_API_KEY:
             model = "flux"
             api_key = REPLICATE_API_KEY
             base_url = None
-        else:
-            if not self.openai_api_key:
-                return ToolExecutionResult(
-                    ok=False,
-                    result={"error": "No API key available for image generation."},
-                    summary={"error": "Missing image generation API key"},
-                )
+        elif api_key:
             model = "dalle3"
-            api_key = self.openai_api_key
-            base_url = self.openai_base_url
+        else:
+            return ToolExecutionResult(
+                ok=False,
+                result={"error": "No API key available for image generation."},
+                summary={"error": "Missing image generation API key"},
+            )
 
-        generated = await process_tasks(unique_prompts, api_key, base_url, model)  # type: ignore
+        print(f"🖼️ [IMG_CONFIG] model={model}, model_name={model_name}, provider={provider or 'auto'}, api_key={'✅' if api_key else '❌'}, base_url={base_url or '(default)'}")
+
+        generated = await process_tasks(unique_prompts, api_key, base_url, model, model_name)  # type: ignore
         merged_results = {
             prompt: url for prompt, url in zip(unique_prompts, generated)
         }
@@ -285,6 +316,14 @@ class AgentToolRuntime:
             )
 
         image_urls = args.get("image_urls") or []
+
+        # LLM 可能将 image_urls 作为 JSON 字符串传入，需要解析为列表
+        if isinstance(image_urls, str):
+            try:
+                image_urls = json.loads(image_urls)
+            except (json.JSONDecodeError, ValueError):
+                image_urls = []
+
         if not isinstance(image_urls, list) or not image_urls:
             return ToolExecutionResult(
                 ok=False,

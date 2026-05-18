@@ -94,6 +94,10 @@ function App() {
       geminiBaseURL: null,
       screenshotOneApiKey: null,
       isImageGenerationEnabled: true,
+      imageGenerationBaseUrl: null,
+      imageGenerationApiKey: null,
+      imageGenerationModel: "dall-e-3",
+      imageGenerationProvider: "openai",
       editorTheme: EditorTheme.COBALT,
       generatedCodeConfig: Stack.HTML_TAILWIND,
       codeGenerationModel: CodeGenerationModel.CLAUDE_4_5_OPUS_2025_11_01,
@@ -197,6 +201,29 @@ function App() {
         selectedApiProvider: "openai",
         anthropicBaseURL: null,
         geminiBaseURL: null,
+      }));
+    }
+  }, [settings, setSettings]);
+
+  // 图片生成配置字段的 localStorage 迁移：确保老用户数据包含新增的设置项
+  useEffect(() => {
+    if (!("imageGenerationModel" in settings)) {
+      setSettings((prev) => ({
+        ...prev,
+        imageGenerationBaseUrl: null,
+        imageGenerationApiKey: null,
+        imageGenerationModel: "dall-e-3",
+        imageGenerationProvider: "openai",
+      }));
+    }
+  }, [settings, setSettings]);
+
+  // imageGenerationProvider 字段迁移：已有 imageGenerationModel 但缺少 provider 的老用户
+  useEffect(() => {
+    if ("imageGenerationModel" in settings && !("imageGenerationProvider" in settings)) {
+      setSettings((prev) => ({
+        ...prev,
+        imageGenerationProvider: "openai",
       }));
     }
   }, [settings, setSettings]);

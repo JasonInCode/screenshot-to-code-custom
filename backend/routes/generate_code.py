@@ -243,6 +243,10 @@ class ExtractedParams:
     code_generation_model: str | None = None
     selected_api_provider: str | None = None
     design_system: str | None = None
+    image_generation_base_url: str | None = None
+    image_generation_api_key: str | None = None
+    image_generation_model: str | None = None
+    image_generation_provider: str | None = None
 
 
 class ParameterExtractionStage:
@@ -364,6 +368,31 @@ class ParameterExtractionStage:
         else:
             selected_api_provider = None
 
+        # 提取图片生成配置
+        image_generation_base_url = params.get("imageGenerationBaseUrl")
+        if isinstance(image_generation_base_url, str) and image_generation_base_url.strip():
+            image_generation_base_url = image_generation_base_url.strip()
+        else:
+            image_generation_base_url = None
+
+        image_generation_api_key = params.get("imageGenerationApiKey")
+        if isinstance(image_generation_api_key, str) and image_generation_api_key.strip():
+            image_generation_api_key = image_generation_api_key.strip()
+        else:
+            image_generation_api_key = None
+
+        image_generation_model = params.get("imageGenerationModel")
+        if isinstance(image_generation_model, str) and image_generation_model.strip():
+            image_generation_model = image_generation_model.strip()
+        else:
+            image_generation_model = None
+
+        image_generation_provider = params.get("imageGenerationProvider")
+        if isinstance(image_generation_provider, str) and image_generation_provider.strip():
+            image_generation_provider = image_generation_provider.strip()
+        else:
+            image_generation_provider = None
+
         return ExtractedParams(
             stack=validated_stack,
             input_mode=validated_input_mode,
@@ -382,6 +411,10 @@ class ParameterExtractionStage:
             code_generation_model=code_generation_model,
             selected_api_provider=selected_api_provider,
             design_system=design_system,
+            image_generation_base_url=image_generation_base_url,
+            image_generation_api_key=image_generation_api_key,
+            image_generation_model=image_generation_model,
+            image_generation_provider=image_generation_provider,
         )
 
     def _get_from_settings_dialog_or_env(
@@ -567,6 +600,10 @@ class AgenticGenerationStage:
         file_state: Dict[str, str] | None,
         option_codes: List[str] | None,
         selected_api_provider: str | None = None,
+        image_generation_base_url: str | None = None,
+        image_generation_api_key: str | None = None,
+        image_generation_model: str | None = None,
+        image_generation_provider: str | None = None,
     ):
         self.send_message = send_message
         self.openai_api_key = openai_api_key
@@ -579,6 +616,10 @@ class AgenticGenerationStage:
         self.file_state = file_state
         self.option_codes = option_codes or []
         self.selected_api_provider = selected_api_provider
+        self.image_generation_base_url = image_generation_base_url
+        self.image_generation_api_key = image_generation_api_key
+        self.image_generation_model = image_generation_model
+        self.image_generation_provider = image_generation_provider
 
     async def process_variants(
         self,
@@ -638,6 +679,10 @@ class AgenticGenerationStage:
                 should_generate_images=self.should_generate_images,
                 initial_file_state=self.file_state,
                 option_codes=self.option_codes,
+                image_generation_base_url=self.image_generation_base_url,
+                image_generation_api_key=self.image_generation_api_key,
+                image_generation_model=self.image_generation_model,
+                image_generation_provider=self.image_generation_provider,
             )
             completion = await runner.run(model, prompt_messages, selected_api_provider=self.selected_api_provider)
             if completion:
@@ -820,6 +865,10 @@ class CodeGenerationMiddleware(Middleware):
                 file_state=context.extracted_params.file_state,
                 option_codes=context.extracted_params.option_codes,
                 selected_api_provider=context.extracted_params.selected_api_provider,
+                image_generation_base_url=context.extracted_params.image_generation_base_url,
+                image_generation_api_key=context.extracted_params.image_generation_api_key,
+                image_generation_model=context.extracted_params.image_generation_model,
+                image_generation_provider=context.extracted_params.image_generation_provider,
             )
 
             context.variant_completions = await generation_stage.process_variants(

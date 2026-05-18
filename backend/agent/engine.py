@@ -34,6 +34,10 @@ class AgentEngine:
         gemini_api_key: Optional[str],
         gemini_base_url: Optional[str],
         should_generate_images: bool,
+        image_generation_base_url: Optional[str] = None,
+        image_generation_api_key: Optional[str] = None,
+        image_generation_model: Optional[str] = None,
+        image_generation_provider: Optional[str] = None,
         initial_file_state: Optional[Dict[str, str]] = None,
         option_codes: Optional[List[str]] = None,
     ):
@@ -46,6 +50,10 @@ class AgentEngine:
         self.gemini_api_key = gemini_api_key
         self.gemini_base_url = gemini_base_url
         self.should_generate_images = should_generate_images
+        self.image_generation_base_url = image_generation_base_url
+        self.image_generation_api_key = image_generation_api_key
+        self.image_generation_model = image_generation_model
+        self.image_generation_provider = image_generation_provider
 
         self.file_state = AgentFileState()
         if initial_file_state and initial_file_state.get("content"):
@@ -57,6 +65,10 @@ class AgentEngine:
             should_generate_images=should_generate_images,
             openai_api_key=openai_api_key,
             openai_base_url=openai_base_url,
+            image_generation_base_url=image_generation_base_url,
+            image_generation_api_key=image_generation_api_key,
+            image_generation_model=image_generation_model,
+            image_generation_provider=image_generation_provider,
             option_codes=option_codes,
         )
         self._tool_preview_lengths: Dict[str, int] = {}

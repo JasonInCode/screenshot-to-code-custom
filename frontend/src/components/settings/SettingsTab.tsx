@@ -142,7 +142,7 @@ function SettingsTab({ settings, setSettings, appTheme, setAppTheme }: Props) {
                     Placeholder Images
                   </p>
                   <p className="mt-1 text-xs text-gray-500 dark:text-zinc-400">
-                    More fun with it but if you want to save money, turn it off.
+                    生成占位图片，关闭可节省费用
                   </p>
                 </div>
                 <Switch
@@ -156,6 +156,112 @@ function SettingsTab({ settings, setSettings, appTheme, setAppTheme }: Props) {
                   }
                 />
               </div>
+              {settings.isImageGenerationEnabled && (
+                <div className="border-t border-dashed border-gray-200 dark:border-zinc-600 mt-3 pt-4">
+                  <div className="rounded-md border border-gray-200 bg-gray-50 p-4 dark:border-zinc-600 dark:bg-zinc-800/40">
+                    <div className="space-y-4">
+                      <div>
+                        <p className="text-sm font-medium">Provider</p>
+                        <p className="text-xs text-muted-foreground">
+                          图片生成 API 类型：OpenAI 兼容接口或 DashScope 原生 API
+                        </p>
+                        <div className="mt-1.5 flex gap-2">
+                          <button
+                            type="button"
+                            className={`flex-1 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
+                              settings.imageGenerationProvider === "openai"
+                                ? "border-violet-300 bg-violet-50 text-violet-700 dark:border-violet-600 dark:bg-violet-900/30 dark:text-violet-300"
+                                : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                            }`}
+                            onClick={() =>
+                              setSettings((s) => ({
+                                ...s,
+                                imageGenerationProvider: "openai",
+                              }))
+                            }
+                          >
+                            OpenAI
+                          </button>
+                          <button
+                            type="button"
+                            className={`flex-1 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
+                              settings.imageGenerationProvider === "dashscope"
+                                ? "border-violet-300 bg-violet-50 text-violet-700 dark:border-violet-600 dark:bg-violet-900/30 dark:text-violet-300"
+                                : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                            }`}
+                            onClick={() =>
+                              setSettings((s) => ({
+                                ...s,
+                                imageGenerationProvider: "dashscope",
+                              }))
+                            }
+                          >
+                            DashScope
+                          </button>
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">Base URL</p>
+                        <p className="text-xs text-muted-foreground">
+                          {settings.imageGenerationProvider === "dashscope"
+                            ? "DashScope 原生 API 地址，如 https://dashscope.aliyuncs.com 或 TokenPlan 租户地址"
+                            : "可选，留空使用默认 OpenAI API 地址"}
+                        </p>
+                        <Input
+                          className="mt-1.5"
+                          placeholder={settings.imageGenerationProvider === "dashscope"
+                            ? "https://dashscope.aliyuncs.com/compatible-mode/v1"
+                            : "https://api.openai.com/v1"}
+                          value={settings.imageGenerationBaseUrl || ""}
+                          onChange={(e) =>
+                            setSettings((s) => ({
+                              ...s,
+                              imageGenerationBaseUrl: e.target.value || null,
+                            }))
+                          }
+                        />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">API Key</p>
+                        <p className="text-xs text-muted-foreground">
+                          图片生成 API 密钥，留空使用代码生成 API Key
+                        </p>
+                        <Input
+                          className="mt-1.5"
+                          type="password"
+                          placeholder="sk-..."
+                          value={settings.imageGenerationApiKey || ""}
+                          onChange={(e) =>
+                            setSettings((s) => ({
+                              ...s,
+                              imageGenerationApiKey: e.target.value || null,
+                            }))
+                          }
+                        />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">Model</p>
+                        <p className="text-xs text-muted-foreground">
+                          {settings.imageGenerationProvider === "dashscope"
+                            ? "DashScope 图片模型，如 wan2.7-image-pro、qwen-image-2.0"
+                            : "OpenAI 兼容图片模型，如 dall-e-3"}
+                        </p>
+                        <Input
+                          className="mt-1.5"
+                          placeholder={settings.imageGenerationProvider === "dashscope" ? "wan2.7-image-pro" : "dall-e-3"}
+                          value={settings.imageGenerationModel || ""}
+                          onChange={(e) =>
+                            setSettings((s) => ({
+                              ...s,
+                              imageGenerationModel: e.target.value || null,
+                            }))
+                          }
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
