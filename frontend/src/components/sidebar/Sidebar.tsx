@@ -4,7 +4,6 @@ import { AppState } from "../../types";
 import { Button } from "../ui/button";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { LuMousePointerClick, LuRefreshCw, LuArrowUp, LuX } from "react-icons/lu";
-import { toast } from "react-hot-toast";
 
 import Variants from "../variants/Variants";
 import UpdateImageUpload, { UpdateImagePreview } from "../UpdateImageUpload";
@@ -31,8 +30,6 @@ interface SidebarProps {
   onOpenVersions: () => void;
   designSystem: DesignSystemSelectorProps;
 }
-
-const MAX_UPDATE_IMAGES = 5;
 
 function extractTagName(html: string): string {
   const match = html.match(/^<(\w+)/);
@@ -122,25 +119,7 @@ function Sidebar({
       if (files.length === 0) return;
 
       try {
-        if (updateImages.length >= MAX_UPDATE_IMAGES) {
-          toast.error(
-            `You’ve reached the limit of ${MAX_UPDATE_IMAGES} reference images. Remove one to add another.`
-          );
-          return;
-        }
-
-        const remainingSlots = MAX_UPDATE_IMAGES - updateImages.length;
-        let filesToAdd = files;
-        if (filesToAdd.length > remainingSlots) {
-          toast.error(
-            `Only ${remainingSlots} more image${
-              remainingSlots === 1 ? "" : "s"
-            } will be added to stay within the ${MAX_UPDATE_IMAGES}-image limit.`
-          );
-          filesToAdd = filesToAdd.slice(0, remainingSlots);
-        }
-
-        const newImagePromises = filesToAdd.map((file) => fileToDataURL(file));
+        const newImagePromises = files.map((file) => fileToDataURL(file));
         const newImages = await Promise.all(newImagePromises);
         setUpdateImages([...updateImages, ...newImages]);
       } catch (error) {

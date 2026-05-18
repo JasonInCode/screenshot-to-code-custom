@@ -3,8 +3,6 @@ import { toast } from "react-hot-toast";
 import { Cross2Icon } from "@radix-ui/react-icons";
 import { LuPlus } from "react-icons/lu";
 
-const MAX_UPDATE_IMAGES = 5;
-
 // Helper function to convert file to data URL
 function fileToDataURL(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -55,17 +53,8 @@ export function UpdateImagePreview({ updateImages, setUpdateImages }: Props) {
 
 function UpdateImageUpload({ updateImages, setUpdateImages }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const remaining = Math.max(0, MAX_UPDATE_IMAGES - updateImages.length);
-  const isAtLimit = remaining === 0;
-
 
   const handleButtonClick = () => {
-    if (isAtLimit) {
-      toast.error(
-        `You’ve reached the limit of ${MAX_UPDATE_IMAGES} reference images. Remove one to add another.`
-      );
-      return;
-    }
     fileInputRef.current?.click();
   };
 
@@ -73,24 +62,7 @@ function UpdateImageUpload({ updateImages, setUpdateImages }: Props) {
     const files = e.target.files;
     if (files) {
       try {
-        if (updateImages.length >= MAX_UPDATE_IMAGES) {
-          toast.error(
-            `You’ve reached the limit of ${MAX_UPDATE_IMAGES} reference images. Remove one to add another.`
-          );
-          return;
-        }
-
-        const remainingSlots = MAX_UPDATE_IMAGES - updateImages.length;
-        let filesToAdd = Array.from(files);
-        if (filesToAdd.length > remainingSlots) {
-          toast.error(
-            `Only ${remainingSlots} more image${
-              remainingSlots === 1 ? "" : "s"
-            } will be added to stay within the ${MAX_UPDATE_IMAGES}-image limit.`
-          );
-          filesToAdd = filesToAdd.slice(0, remainingSlots);
-        }
-
+        const filesToAdd = Array.from(files);
         const newImagePromises = filesToAdd.map((file) => fileToDataURL(file));
         const newImages = await Promise.all(newImagePromises);
         setUpdateImages([...updateImages, ...newImages]);
@@ -115,17 +87,8 @@ function UpdateImageUpload({ updateImages, setUpdateImages }: Props) {
       <button
         type="button"
         onClick={handleButtonClick}
-        disabled={isAtLimit}
-        className={`p-2 rounded-lg transition-colors ${
-          isAtLimit
-            ? "text-gray-300 dark:text-zinc-600 cursor-not-allowed"
-            : "text-gray-500 dark:text-zinc-400 hover:text-gray-700 dark:hover:text-zinc-200 hover:bg-gray-100 dark:hover:bg-zinc-800"
-        }`}
-        title={
-          isAtLimit
-            ? `Limit reached (${MAX_UPDATE_IMAGES})`
-            : "Add images"
-        }
+        className="p-2 rounded-lg transition-colors text-gray-500 dark:text-zinc-400 hover:text-gray-700 dark:hover:text-zinc-200 hover:bg-gray-100 dark:hover:bg-zinc-800"
+        title="Add images"
       >
         <LuPlus className="w-[18px] h-[18px]" />
       </button>
