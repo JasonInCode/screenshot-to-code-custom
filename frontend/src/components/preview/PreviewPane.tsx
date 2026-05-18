@@ -58,12 +58,6 @@ function PreviewPane({ settings, onOpenVersions }: Props) {
     ? currentCommit.variants[currentCommit.selectedVariantIndex].code
     : "";
 
-  const isSelectedVariantComplete =
-    head &&
-    commits[head] &&
-    commits[head].variants[commits[head].selectedVariantIndex].status ===
-      "complete";
-
   const previewCode =
     inputMode === "video" && appState === AppState.CODING
       ? extractHtml(currentCode)
@@ -179,18 +173,16 @@ function PreviewPane({ settings, onOpenVersions }: Props) {
           )}
 
           <div className="flex items-center gap-1">
-            {(appState === AppState.CODE_READY || isSelectedVariantComplete) && (
-              <Button
-                onClick={() => downloadCode(previewCode)}
-                variant="ghost"
-                size="icon"
-                title="Download Code"
-                className="h-9 w-9"
-                data-testid="download-code"
-              >
-                <LuDownload />
-              </Button>
-            )}
+            <Button
+              onClick={() => downloadCode(previewCode)}
+              variant="ghost"
+              size="icon"
+              title="Download Code"
+              className="h-9 w-9"
+              data-testid="download-code"
+            >
+              <LuDownload />
+            </Button>
             <Button
               onClick={() => {
                 const iframes = document.querySelectorAll("iframe");
