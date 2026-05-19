@@ -10,6 +10,17 @@
 
 A simple tool to convert screenshots, mockups and Figma designs into clean, functional code using AI. Now supporting Gemini 3 and Claude Opus 4.5!
 
+> **Note:** This is a fork with custom enhancements. The changes below are not in the original [abi/screenshot-to-code](https://github.com/abi/screenshot-to-code).
+
+## ✨ Custom Enhancements
+
+- **Custom model ID and Provider URL** — Type any model ID (e.g. `qwen3-6-plus`, `deepseek-v3`) in the Model Combobox and it will be routed to the selected Provider (OpenAI/Anthropic/Gemini). Each Provider also has its own Base URL field for proxy or self-hosted services.
+- **Provider tab UI** — API Keys section redesigned as Provider tabs (OpenAI/Anthropic/Gemini) with conditional config panels. The Model Combobox offers preset models per provider and accepts custom IDs.
+- **Unlimited image uploads** — Removed the 5-image upload limit; upload as many screenshots as you need. The entire dropzone area is clickable to open the file picker.
+- **Download button always visible** — The download button is shown at all times (even during generation), allowing you to download incomplete code at any stage.
+- **Custom image generation settings** — Configure your own image generation Provider (OpenAI-compatible or DashScope native), Base URL, API Key, and Model in Settings > Image Generation. Supports DashScope/TokenPlan models with rate-limit retry (exponential backoff, 10 retries on 429).
+- **One-click startup script** — Run `python start.py` to kill existing processes on configured ports and launch frontend + backend in separate terminal windows with live logs. Supports `--frontend-port` and `--backend-port` flags.
+
 https://github.com/user-attachments/assets/85b911c0-efea-4957-badb-daa97ec402ad
 
 Supported stacks:
@@ -52,6 +63,20 @@ Keys needed:
 
 - [OpenAI API key](https://github.com/abi/screenshot-to-code/blob/main/Troubleshooting.md), Anthropic key, or Google Gemini key
 - Multiple keys are recommended so you can compare results from different models
+
+**Quick start (Windows):**
+
+```bash
+python start.py
+```
+
+This kills existing processes on ports 5173/7001, then opens two terminal windows for frontend and backend with live logs. You can customize ports:
+
+```bash
+python start.py --frontend-port 3000 --backend-port 8000
+```
+
+**Manual start:**
 
 If you'd like to run the app with Ollama open source models (not recommended due to poor quality results), [follow this comment](https://github.com/abi/screenshot-to-code/issues/354#issuecomment-2435479853).
 
