@@ -266,8 +266,14 @@ class AgentToolRuntime:
         api_key = self.image_generation_api_key or self.openai_api_key
         base_url = self.image_generation_base_url or self.openai_base_url
 
-        # 自定义模型名称优先
-        model_name = self.image_generation_model or "dall-e-3"
+        # 模型名称必须由用户指定
+        model_name = self.image_generation_model or ""
+        if not model_name:
+            return ToolExecutionResult(
+                ok=False,
+                result={"error": "Image generation model is not configured. Please set a model name in Settings > Image Generation."},
+                summary={"error": "Missing image generation model"},
+            )
 
         # 📝 确定图片生成 provider：用户指定优先，否则按 key 优先级自动选择
         # provider 值: "dashscope" / "openai" / "flux"

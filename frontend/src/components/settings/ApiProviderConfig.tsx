@@ -68,7 +68,7 @@ export function ApiProviderConfig({ provider, settings, setSettings }: Props) {
           {label} Base URL <span className="text-muted-foreground">(optional)</span>
         </p>
         <p className="text-xs text-muted-foreground">
-          如果使用代理或自托管服务，可在此覆盖默认 API 地址
+          Override the default API URL if using a proxy or self-hosted service
         </p>
         <Input
           placeholder={defaultBaseUrl}
@@ -82,7 +82,7 @@ export function ApiProviderConfig({ provider, settings, setSettings }: Props) {
       <div>
         <p className="text-sm font-medium">{label} API Key</p>
         <p className="text-xs text-muted-foreground">
-          密钥仅存储在浏览器本地，不会发送到任何第三方服务器
+          Keys are stored locally in your browser and never sent to third-party servers
         </p>
         <Input
           type="password"
@@ -99,7 +99,7 @@ export function ApiProviderConfig({ provider, settings, setSettings }: Props) {
           Model <span className="text-muted-foreground">(select or type custom)</span>
         </p>
         <p className="text-xs text-muted-foreground">
-          从预设模型中选择，或直接输入自定义模型 ID
+          Select a preset model or type a custom model ID
         </p>
         <div className="mt-1.5">
           <ModelCombobox

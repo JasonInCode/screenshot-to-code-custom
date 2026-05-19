@@ -11,7 +11,6 @@ import { USER_CLOSE_WEB_SOCKET_CODE } from "./constants";
 import toast from "react-hot-toast";
 import { nanoid } from "nanoid";
 import { Stack } from "./lib/stacks";
-import { CodeGenerationModel } from "./lib/models";
 import useBrowserTabIndicator from "./hooks/useBrowserTabIndicator";
 import { LuChevronLeft } from "react-icons/lu";
 import {
@@ -96,11 +95,11 @@ function App() {
       isImageGenerationEnabled: true,
       imageGenerationBaseUrl: null,
       imageGenerationApiKey: null,
-      imageGenerationModel: "dall-e-3",
+      imageGenerationModel: "",
       imageGenerationProvider: "openai",
       editorTheme: EditorTheme.COBALT,
       generatedCodeConfig: Stack.HTML_TAILWIND,
-      codeGenerationModel: CodeGenerationModel.CLAUDE_4_5_OPUS_2025_11_01,
+      codeGenerationModel: "",
       selectedDesignSystemId: null,
       // Only relevant for hosted version
       isTermOfServiceAccepted: false,
@@ -212,7 +211,7 @@ function App() {
         ...prev,
         imageGenerationBaseUrl: null,
         imageGenerationApiKey: null,
-        imageGenerationModel: "dall-e-3",
+        imageGenerationModel: "",
         imageGenerationProvider: "openai",
       }));
     }

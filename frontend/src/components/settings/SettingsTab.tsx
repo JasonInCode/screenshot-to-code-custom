@@ -142,7 +142,7 @@ function SettingsTab({ settings, setSettings, appTheme, setAppTheme }: Props) {
                     Placeholder Images
                   </p>
                   <p className="mt-1 text-xs text-gray-500 dark:text-zinc-400">
-                    生成占位图片，关闭可节省费用
+                    Generate placeholder images, disable to save costs
                   </p>
                 </div>
                 <Switch
@@ -163,7 +163,7 @@ function SettingsTab({ settings, setSettings, appTheme, setAppTheme }: Props) {
                       <div>
                         <p className="text-sm font-medium">Provider</p>
                         <p className="text-xs text-muted-foreground">
-                          图片生成 API 类型：OpenAI 兼容接口或 DashScope 原生 API
+                          Image generation API type: OpenAI-compatible or DashScope native API
                         </p>
                         <div className="mt-1.5 flex gap-2">
                           <button
@@ -204,8 +204,8 @@ function SettingsTab({ settings, setSettings, appTheme, setAppTheme }: Props) {
                         <p className="text-sm font-medium">Base URL</p>
                         <p className="text-xs text-muted-foreground">
                           {settings.imageGenerationProvider === "dashscope"
-                            ? "DashScope 原生 API 地址，如 https://dashscope.aliyuncs.com 或 TokenPlan 租户地址"
-                            : "可选，留空使用默认 OpenAI API 地址"}
+                            ? "DashScope native API endpoint, e.g. https://dashscope.aliyuncs.com or your TokenPlan tenant URL"
+                            : "Optional, leave empty to use the default OpenAI API URL"}
                         </p>
                         <Input
                           className="mt-1.5"
@@ -224,7 +224,7 @@ function SettingsTab({ settings, setSettings, appTheme, setAppTheme }: Props) {
                       <div>
                         <p className="text-sm font-medium">API Key</p>
                         <p className="text-xs text-muted-foreground">
-                          图片生成 API 密钥，留空使用代码生成 API Key
+                          Image generation API key, leave empty to use the code generation key
                         </p>
                         <Input
                           className="mt-1.5"
@@ -243,8 +243,8 @@ function SettingsTab({ settings, setSettings, appTheme, setAppTheme }: Props) {
                         <p className="text-sm font-medium">Model</p>
                         <p className="text-xs text-muted-foreground">
                           {settings.imageGenerationProvider === "dashscope"
-                            ? "DashScope 图片模型，如 wan2.7-image-pro、qwen-image-2.0"
-                            : "OpenAI 兼容图片模型，如 dall-e-3"}
+                            ? "DashScope image model, e.g. wan2.7-image-pro, qwen-image-2.0"
+                            : "OpenAI-compatible image model, e.g. dall-e-3"}
                         </p>
                         <Input
                           className="mt-1.5"
