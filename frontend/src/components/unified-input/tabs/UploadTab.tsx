@@ -289,7 +289,10 @@ function UploadTab({ doCreate, stack, setStack, designSystem }: Props) {
             </p>
             <button
               type="button"
-              onClick={open}
+              onClick={(e) => {
+                e.stopPropagation();
+                open();
+              }}
               className="text-sm text-gray-600 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-zinc-200 underline"
             >
               Browse files
@@ -325,7 +328,7 @@ function UploadTab({ doCreate, stack, setStack, designSystem }: Props) {
                 })}
               >
                 <input {...getInputProps()} />
-                <div className="flex items-center justify-between text-xs uppercase tracking-wide text-gray-400 dark:text-zinc-500">
+                <div className="flex items-center justify-between text-xs uppercase tracking-wide text-gray-400 dark:text-zinc-500" onClick={(e) => e.stopPropagation()}>
                   <span>{`Uploaded Screenshots (${files.length})`}</span>
                   <button
                     type="button"
@@ -335,7 +338,7 @@ function UploadTab({ doCreate, stack, setStack, designSystem }: Props) {
                     Clear all
                   </button>
                 </div>
-                <div className="mt-3 rounded-md border border-gray-100 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-800 p-2 overflow-hidden">
+                <div className="mt-3 rounded-md border border-gray-100 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-800 p-2 overflow-hidden" onClick={(e) => e.stopPropagation()}>
                   <div className="flex h-[280px] w-full items-center justify-center overflow-hidden rounded bg-white dark:bg-zinc-900">
                     {files[selectedIndex] && (
                       <img
@@ -346,7 +349,7 @@ function UploadTab({ doCreate, stack, setStack, designSystem }: Props) {
                     )}
                   </div>
                 </div>
-                <div className="mt-3 flex items-center gap-2 overflow-x-auto pb-1">
+                <div className="mt-3 flex items-center gap-2 overflow-x-auto pb-1" onClick={(e) => e.stopPropagation()}>
                   {files.map((file, index) => (
                     <div key={`${file.name}-${index}`} className="relative group flex-shrink-0">
                       <button
@@ -377,14 +380,17 @@ function UploadTab({ doCreate, stack, setStack, designSystem }: Props) {
                   ))}
                   <button
                     type="button"
-                    onClick={() => open()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      open();
+                    }}
                     className="h-14 w-14 rounded-md border border-dashed flex items-center justify-center flex-shrink-0 border-gray-300 dark:border-zinc-600 text-gray-500 dark:text-zinc-400 hover:text-gray-700 dark:hover:text-zinc-200 hover:border-gray-400 dark:hover:border-zinc-500"
                     aria-label="Add more screenshots"
                   >
                     <ImageIcon className="h-5 w-5" />
                   </button>
                 </div>
-                <div className="mt-2 text-xs text-gray-400 dark:text-zinc-500">
+                <div className="mt-2 text-xs text-gray-400 dark:text-zinc-500" onClick={(e) => e.stopPropagation()}>
                   Drag and drop to add more screenshots
                 </div>
                 {isDragActive && (

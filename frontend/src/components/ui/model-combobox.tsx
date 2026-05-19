@@ -13,7 +13,7 @@ interface Props {
 }
 
 const ModelCombobox = React.forwardRef<HTMLInputElement, Props>(
-  ({ value, onChange, presetModels, placeholder = "选择或输入模型 ID" }, ref) => {
+  ({ value, onChange, presetModels, placeholder = "Select or type a model ID" }, ref) => {
     // 下拉框开关状态
     const [isOpen, setIsOpen] = React.useState(false);
     // 过滤查询状态（仅用于过滤下拉列表，不控制输入框值）
@@ -150,7 +150,7 @@ const ModelCombobox = React.forwardRef<HTMLInputElement, Props>(
               </div>
             ) : (
               <div className="px-3 py-2 text-sm text-muted-foreground">
-                无匹配的预设模型
+                No matching preset models
               </div>
             )}
 
@@ -161,7 +161,7 @@ const ModelCombobox = React.forwardRef<HTMLInputElement, Props>(
                 "border-border text-muted-foreground"
               )}
             >
-              或在上方输入自定义模型 ID
+              Or type a custom model ID above
             </div>
           </div>
         )}

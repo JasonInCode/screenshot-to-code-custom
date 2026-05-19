@@ -46,28 +46,35 @@ def kill_port(port: int) -> None:
     print(f"✅ 端口 {port} 已释放")
 
 
-def open_terminal(title: str, command: str, cwd: str) -> None:
-    """🚀 在新的 Windows Terminal 窗口中执行命令"""
-    # 尝试使用 wt (Windows Terminal)，更美观
+def open_terminals(tabs: list[tuple[str, str, str]]) -> None:
+    """🚀 在同一 Windows Terminal 窗口中以多 tab 方式启动命令"""
+    # tabs: [(title, command, cwd), ...]
     wt_available = subprocess.run(
         "where wt", shell=True, capture_output=True,
     ).returncode == 0
 
     if wt_available:
-        subprocess.Popen([
-            "wt", "-w", "new", "new-tab",
-            "--title", title,
-            "-d", cwd,
-            "powershell", "-NoExit", "-Command", command,
-        ])
+        # wt 单条命令：第一个 new-tab 创建窗口，后续 new-tab 添加 tab
+        cmd = ["wt", "-w", "new"]
+        for i, (title, command, cwd) in enumerate(tabs):
+            if i > 0:
+                cmd.append(";")
+            cmd.extend([
+                "new-tab",
+                "--title", title,
+                "-d", cwd,
+                "powershell", "-NoExit", "-Command", command,
+            ])
+        subprocess.Popen(cmd)
     else:
-        # fallback: 使用 cmd start 命令
-        subprocess.Popen([
-            "cmd", "/c", "start",
-            f"\"{title}\"",
-            "powershell", "-NoExit", "-Command",
-            f"cd \"{cwd}\"; {command}",
-        ])
+        # fallback: 使用 cmd start 命令（每个 tab 单独一个窗口）
+        for title, command, cwd in tabs:
+            subprocess.Popen([
+                "cmd", "/c", "start",
+                f"\"{title}\"",
+                "powershell", "-NoExit", "-Command",
+                f"cd \"{cwd}\"; {command}",
+            ])
 
 
 def main():
@@ -88,23 +95,14 @@ def main():
     kill_port(fp)
     kill_port(bp)
 
-    # 🚀 启动后端
+    # 🚀 启动前后端（同一窗口两个 tab）
     backend_dir = os.path.join(PROJECT_DIR, "backend")
-    print(f"\n🚀 启动后端 (端口 {bp})...")
-    open_terminal(
-        title=f"Backend (:{bp})",
-        command=f"python start.py --port {bp}",
-        cwd=backend_dir,
-    )
-
-    # 🚀 启动前端
     frontend_dir = os.path.join(PROJECT_DIR, "frontend")
-    print(f"\n🚀 启动前端 (端口 {fp})...")
-    open_terminal(
-        title=f"Frontend (:{fp})",
-        command=f"pnpm run dev -- --port {fp}",
-        cwd=frontend_dir,
-    )
+    print(f"\n🚀 启动后端 (端口 {bp}) + 前端 (端口 {fp})...")
+    open_terminals([
+        (f"Backend (:{bp})", f"python start.py --port {bp}", backend_dir),
+        (f"Frontend (:{fp})", f"pnpm run dev -- --port {fp}", frontend_dir),
+    ])
 
     print(f"\n✅ 启动完成！")
     print(f"   🌐 前端: http://localhost:{fp}")
