@@ -1,6 +1,7 @@
 from typing import Any, Dict, List
 
 from agent.tools.types import CanonicalToolDefinition
+from config import REPLICATE_API_KEY
 
 
 def _create_schema() -> Dict[str, Any]:
@@ -103,6 +104,7 @@ def _retrieve_option_schema() -> Dict[str, Any]:
 
 def canonical_tool_definitions(
     image_generation_enabled: bool = True,
+    has_option_codes: bool = False,
 ) -> List[CanonicalToolDefinition]:
     tools: List[CanonicalToolDefinition] = [
         CanonicalToolDefinition(
@@ -134,8 +136,10 @@ def canonical_tool_definitions(
                 parameters=_image_schema(),
             )
         )
-    tools.extend(
-        [
+
+    # 🔍 只有配置了 Replicate API key 时才添加背景移除工具
+    if REPLICATE_API_KEY:
+        tools.append(
             CanonicalToolDefinition(
                 name="remove_background",
                 description=(
@@ -144,7 +148,12 @@ def canonical_tool_definitions(
                     "transparent backgrounds."
                 ),
                 parameters=_remove_background_schema(),
-            ),
+            )
+        )
+
+    # 🔍 只有有可用选项时才添加 retrieve_option 工具
+    if has_option_codes:
+        tools.append(
             CanonicalToolDefinition(
                 name="retrieve_option",
                 description=(
@@ -152,7 +161,7 @@ def canonical_tool_definitions(
                     "reference it."
                 ),
                 parameters=_retrieve_option_schema(),
-            ),
-        ]
-    )
+            )
+        )
+
     return tools
