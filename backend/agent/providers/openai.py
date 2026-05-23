@@ -572,6 +572,9 @@ class OpenAIProviderSession(ProviderSession):
             reasoning_effort = get_openai_reasoning_effort(self._model)
             if reasoning_effort:
                 params["reasoning"] = {"effort": reasoning_effort, "summary": "auto"}
+        else:
+            # 自定义字符串模型：启用 reasoning 以获取 thinking 事件
+            params["reasoning"] = {"effort": "high", "summary": "auto"}
 
         self._turn_input_logger.record_turn_input(
             self._input_items,
