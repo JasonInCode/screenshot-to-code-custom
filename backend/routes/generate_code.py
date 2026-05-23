@@ -242,6 +242,7 @@ class ExtractedParams:
     option_codes: List[str]
     code_generation_model: str | None = None
     selected_api_provider: str | None = None
+    supports_responses_api: bool | None = None  # API 兼容性检测结果
     design_system: str | None = None
     image_generation_base_url: str | None = None
     image_generation_api_key: str | None = None
@@ -368,6 +369,11 @@ class ParameterExtractionStage:
         else:
             selected_api_provider = None
 
+        # 提取 API 兼容性检测结果（测试时自动填充）
+        supports_responses_api = params.get("supportsResponsesApi")
+        if not isinstance(supports_responses_api, bool):
+            supports_responses_api = None
+
         # 提取图片生成配置
         image_generation_base_url = params.get("imageGenerationBaseUrl")
         if isinstance(image_generation_base_url, str) and image_generation_base_url.strip():
@@ -410,6 +416,7 @@ class ParameterExtractionStage:
             option_codes=option_codes,
             code_generation_model=code_generation_model,
             selected_api_provider=selected_api_provider,
+            supports_responses_api=supports_responses_api,
             design_system=design_system,
             image_generation_base_url=image_generation_base_url,
             image_generation_api_key=image_generation_api_key,
@@ -600,6 +607,7 @@ class AgenticGenerationStage:
         file_state: Dict[str, str] | None,
         option_codes: List[str] | None,
         selected_api_provider: str | None = None,
+        supports_responses_api: bool | None = None,
         image_generation_base_url: str | None = None,
         image_generation_api_key: str | None = None,
         image_generation_model: str | None = None,
@@ -616,6 +624,7 @@ class AgenticGenerationStage:
         self.file_state = file_state
         self.option_codes = option_codes or []
         self.selected_api_provider = selected_api_provider
+        self.supports_responses_api = supports_responses_api
         self.image_generation_base_url = image_generation_base_url
         self.image_generation_api_key = image_generation_api_key
         self.image_generation_model = image_generation_model
@@ -684,7 +693,7 @@ class AgenticGenerationStage:
                 image_generation_model=self.image_generation_model,
                 image_generation_provider=self.image_generation_provider,
             )
-            completion = await runner.run(model, prompt_messages, selected_api_provider=self.selected_api_provider)
+            completion = await runner.run(model, prompt_messages, selected_api_provider=self.selected_api_provider, supports_responses_api=self.supports_responses_api)
             if completion:
                 await self.send_message("setCode", completion, index, None, None)
             await self.send_message(
@@ -865,6 +874,7 @@ class CodeGenerationMiddleware(Middleware):
                 file_state=context.extracted_params.file_state,
                 option_codes=context.extracted_params.option_codes,
                 selected_api_provider=context.extracted_params.selected_api_provider,
+                supports_responses_api=context.extracted_params.supports_responses_api,
                 image_generation_base_url=context.extracted_params.image_generation_base_url,
                 image_generation_api_key=context.extracted_params.image_generation_api_key,
                 image_generation_model=context.extracted_params.image_generation_model,

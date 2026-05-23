@@ -33,6 +33,8 @@ export interface Settings {
   generatedCodeConfig: Stack;
   codeGenerationModel: string;
   selectedDesignSystemId: string | null;
+  // API 兼容性检测结果（测试时自动填充）
+  supportsResponsesApi: boolean | null;
   // Only relevant for hosted version
   isTermOfServiceAccepted: boolean;
 }

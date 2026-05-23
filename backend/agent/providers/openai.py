@@ -122,6 +122,25 @@ def serialize_openai_tools(
             }
         )
     return serialized
+
+
+def serialize_chat_completions_tools(
+    tools: List[CanonicalToolDefinition],
+) -> List[Dict[str, Any]]:
+    """Chat Completions API 工具序列化（不做 Responses API 的 schema 修改）"""
+    serialized: List[Dict[str, Any]] = []
+    for tool in tools:
+        serialized.append(
+            {
+                "type": "function",
+                "function": {
+                    "name": tool.name,
+                    "description": tool.description,
+                    "parameters": tool.parameters,
+                }
+            }
+        )
+    return serialized
 @dataclass
 class OpenAIResponsesParseState:
     assistant_text: str = ""
@@ -411,10 +430,12 @@ class OpenAIProviderSession(ProviderSession):
         model: str | Llm,
         prompt_messages: List[ChatCompletionMessageParam],
         tools: List[Dict[str, Any]],
+        use_chat_completions: bool = False,
     ):
         self._client = client
         self._model = model
         self._tools = tools
+        self._use_chat_completions = use_chat_completions
         self._total_usage = TokenUsage()
         self._turn_input_logger = OpenAITurnInputLogger(
             model,
@@ -423,9 +444,119 @@ class OpenAIProviderSession(ProviderSession):
         self._input_items: List[Dict[str, Any]] = [
             _convert_message_to_responses_input(message) for message in prompt_messages
         ]
+        # Chat Completions API 使用原始消息格式
+        self._chat_messages: List[ChatCompletionMessageParam] = list(prompt_messages)
 
-    async def stream_turn(self, on_event: EventSink) -> ProviderTurn:
-        # 自定义模型直接用字符串，已知 Llm 值用配置表
+    async def _stream_chat_completions(self, on_event: EventSink) -> ProviderTurn:
+        """使用 Chat Completions API（适用于 MiniMax 等第三方服务）"""
+        model_name = self._model if isinstance(self._model, str) else get_openai_api_name(self._model)
+
+        # 工具已经是 Chat Completions 格式，直接使用
+        chat_tools = self._tools
+
+        params: Dict[str, Any] = {
+            "model": model_name,
+            "messages": self._chat_messages,
+            "stream": True,
+            "max_tokens": 16000,
+        }
+        if chat_tools:
+            params["tools"] = chat_tools
+            params["tool_choice"] = "auto"
+
+        # 调试日志：打印请求信息
+        print(f"[DEBUG] Using Chat Completions API")
+        print(f"[DEBUG] Base URL: {self._client.base_url}")
+        print(f"[DEBUG] Model: {model_name}")
+        print(f"[DEBUG] Messages count: {len(self._chat_messages)}")
+        print(f"[DEBUG] Tools count: {len(chat_tools)}")
+
+        self._turn_input_logger.record_turn_input(
+            self._chat_messages,
+            request_payload=params,
+        )
+
+        assistant_text = ""
+        tool_calls: List[ToolCall] = []
+        tool_call_chunks: Dict[int, Dict[str, Any]] = {}
+
+        stream = await self._client.chat.completions.create(**params)
+        async for chunk in stream:
+            if not chunk.choices:
+                continue
+
+            choice = chunk.choices[0]
+            delta = choice.delta
+
+            # 处理文本内容
+            if delta.content:
+                assistant_text += delta.content
+                await on_event(StreamEvent(type="assistant_delta", text=delta.content))
+
+            # 处理工具调用
+            if delta.tool_calls:
+                for tc in delta.tool_calls:
+                    idx = tc.index
+                    if idx not in tool_call_chunks:
+                        tool_call_chunks[idx] = {
+                            "id": tc.id or "",
+                            "name": tc.function.name if tc.function else "",
+                            "arguments": "",
+                        }
+                    if tc.id:
+                        tool_call_chunks[idx]["id"] = tc.id
+                    if tc.function and tc.function.name:
+                        tool_call_chunks[idx]["name"] = tc.function.name
+                    if tc.function and tc.function.arguments:
+                        tool_call_chunks[idx]["arguments"] += tc.function.arguments
+
+            # 只在流结束时处理工具调用（finish_reason 不为 None 表示流结束）
+            if choice.finish_reason is not None and tool_call_chunks:
+                print(f"[DEBUG] Processing {len(tool_call_chunks)} tool calls, finish_reason={choice.finish_reason}")
+                for idx in sorted(tool_call_chunks.keys()):
+                    tc_data = tool_call_chunks[idx]
+                    print(f"[DEBUG] Tool call {idx}: name={tc_data['name']}, args_length={len(tc_data['arguments'])}")
+                    print(f"[DEBUG] Raw args: {tc_data['arguments'][:500]}")
+                    args, error = parse_json_arguments(tc_data["arguments"])
+                    if error:
+                        print(f"[DEBUG] ❌ JSON parse error: {error}")
+                        args = {"INVALID_JSON": tc_data["arguments"]}
+                    else:
+                        print(f"[DEBUG] ✅ Parsed args keys: {list(args.keys())}")
+                        if "content" in args:
+                            print(f"[DEBUG] Content length: {len(str(args['content']))}")
+                    # 始终生成新的唯一 ID，避免 MiniMax 返回重复 ID 的问题
+                    unique_id = f"call-{uuid.uuid4().hex[:12]}"
+                    tool_calls.append(ToolCall(
+                        id=unique_id,
+                        name=tc_data["name"] or "unknown_tool",
+                        arguments=args,
+                    ))
+
+        # 更新消息历史
+        assistant_message: ChatCompletionMessageParam = {
+            "role": "assistant",
+            "content": assistant_text,
+        }
+        if tool_calls:
+            assistant_message["tool_calls"] = [
+                {
+                    "id": tc.id,
+                    "type": "function",
+                    "function": {"name": tc.name, "arguments": json.dumps(tc.arguments)}
+                }
+                for tc in tool_calls
+            ]
+        self._chat_messages.append(assistant_message)
+
+        return ProviderTurn(
+            assistant_text=assistant_text,
+            tool_calls=tool_calls,
+            assistant_turn=[assistant_message] if tool_calls else [],
+        )
+
+    async def _stream_responses(self, on_event: EventSink) -> ProviderTurn:
+        """使用 Responses API（适用于 OpenAI 官方模型）"""
         model_name = self._model if isinstance(self._model, str) else get_openai_api_name(self._model)
         params: Dict[str, Any] = {
             "model": model_name,
@@ -437,7 +568,6 @@ class OpenAIProviderSession(ProviderSession):
         }
         if model_name == "gpt-5.4-2026-03-05":
             params["prompt_cache_retention"] = "24h"
-        # 自定义模型不配置 reasoning_effort；已知 Llm 值使用配置表
         if isinstance(self._model, Llm):
             reasoning_effort = get_openai_reasoning_effort(self._model)
             if reasoning_effort:
@@ -459,25 +589,41 @@ class OpenAIProviderSession(ProviderSession):
 
         return _build_provider_turn(state)
 
+    async def stream_turn(self, on_event: EventSink) -> ProviderTurn:
+        if self._use_chat_completions:
+            return await self._stream_chat_completions(on_event)
+        else:
+            return await self._stream_responses(on_event)
+
     def append_tool_results(
         self,
         turn: ProviderTurn,
         executed_tool_calls: list[ExecutedToolCall],
     ) -> None:
-        assistant_output_items = turn.assistant_turn or []
-        if assistant_output_items:
-            self._input_items.extend(assistant_output_items)
+        if self._use_chat_completions:
+            # Chat Completions API 格式
+            for executed in executed_tool_calls:
+                self._chat_messages.append({
+                    "role": "tool",
+                    "tool_call_id": executed.tool_call.id,
+                    "content": json.dumps(executed.result.result),
+                })
+        else:
+            # Responses API 格式
+            assistant_output_items = turn.assistant_turn or []
+            if assistant_output_items:
+                self._input_items.extend(assistant_output_items)
 
-        tool_output_items: List[Dict[str, Any]] = []
-        for executed in executed_tool_calls:
-            tool_output_items.append(
-                {
-                    "type": "function_call_output",
-                    "call_id": executed.tool_call.id,
-                    "output": json.dumps(executed.result.result),
-                }
-            )
-        self._input_items.extend(tool_output_items)
+            tool_output_items: List[Dict[str, Any]] = []
+            for executed in executed_tool_calls:
+                tool_output_items.append(
+                    {
+                        "type": "function_call_output",
+                        "call_id": executed.tool_call.id,
+                        "output": json.dumps(executed.result.result),
+                    }
+                )
+            self._input_items.extend(tool_output_items)
 
     async def close(self) -> None:
         u = self._total_usage

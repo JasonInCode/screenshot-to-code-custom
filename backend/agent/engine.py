@@ -241,7 +241,7 @@ class AgentEngine:
 
         raise Exception("Agent exceeded max tool turns")
 
-    async def run(self, model: str | Llm, prompt_messages: List[ChatCompletionMessageParam], selected_api_provider: str | None = None) -> str:
+    async def run(self, model: str | Llm, prompt_messages: List[ChatCompletionMessageParam], selected_api_provider: str | None = None, supports_responses_api: bool | None = None) -> str:
         seed_file_state_from_messages(self.file_state, prompt_messages)
 
         session = create_provider_session(
@@ -255,6 +255,8 @@ class AgentEngine:
             gemini_api_key=self.gemini_api_key,
             gemini_base_url=self.gemini_base_url,
             selected_api_provider=selected_api_provider,
+            supports_responses_api=supports_responses_api,
+            has_option_codes=bool(self.option_codes),
         )
         try:
             return await self._run_with_session(session)

@@ -9,7 +9,7 @@ from openai.types.chat import ChatCompletionMessageParam
 from agent.providers.anthropic import AnthropicProviderSession, serialize_anthropic_tools
 from agent.providers.base import ProviderSession
 from agent.providers.gemini import GeminiProviderSession, serialize_gemini_tools
-from agent.providers.openai import OpenAIProviderSession, serialize_openai_tools
+from agent.providers.openai import OpenAIProviderSession, serialize_chat_completions_tools, serialize_openai_tools
 from agent.tools import canonical_tool_definitions
 from llm import ANTHROPIC_MODELS, GEMINI_MODELS, OPENAI_MODELS, Llm
 
@@ -25,9 +25,12 @@ def create_provider_session(
     gemini_api_key: Optional[str],
     gemini_base_url: Optional[str],
     selected_api_provider: str | None = None,
+    supports_responses_api: bool | None = None,
+    has_option_codes: bool = False,
 ) -> ProviderSession:
     canonical_tools = canonical_tool_definitions(
-        image_generation_enabled=should_generate_images
+        image_generation_enabled=should_generate_images,
+        has_option_codes=has_option_codes,
     )
 
     # 自定义模型字符串：根据 selected_api_provider 路由到对应 provider
@@ -37,11 +40,22 @@ def create_provider_session(
             if not openai_api_key:
                 raise Exception("OpenAI API key is missing.")
             client = AsyncOpenAI(api_key=openai_api_key, base_url=openai_base_url)
+
+            # 🔍 根据 API 兼容性检测结果决定使用哪种 API
+            # supports_responses_api=True  → 使用 Responses API
+            # supports_responses_api=False 或 None → 使用 Chat Completions API
+            use_chat_completions = supports_responses_api is not True
+            if use_chat_completions:
+                tools = serialize_chat_completions_tools(canonical_tools)
+            else:
+                tools = serialize_openai_tools(canonical_tools)
+
             return OpenAIProviderSession(
                 client=client,
                 model=model,
                 prompt_messages=prompt_messages,
-                tools=serialize_openai_tools(canonical_tools),
+                tools=tools,
+                use_chat_completions=use_chat_completions,
             )
         if provider == "anthropic":
             if not anthropic_api_key:
