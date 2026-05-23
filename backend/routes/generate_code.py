@@ -244,6 +244,7 @@ class ExtractedParams:
     selected_api_provider: str | None = None
     supports_responses_api: bool | None = None  # API 兼容性检测结果
     supports_anthropic_images: bool | None = None  # 是否支持 Anthropic 图片格式
+    num_variants: int = 1  # 用户配置的 options 数量
     design_system: str | None = None
     image_generation_base_url: str | None = None
     image_generation_api_key: str | None = None
@@ -404,6 +405,12 @@ class ParameterExtractionStage:
         else:
             image_generation_provider = None
 
+        # 提取用户配置的 options 数量（1-8）
+        raw_num_variants = params.get("numVariants")
+        num_variants = 1
+        if isinstance(raw_num_variants, (int, float)) and 1 <= raw_num_variants <= 8:
+            num_variants = int(raw_num_variants)
+
         return ExtractedParams(
             stack=validated_stack,
             input_mode=validated_input_mode,
@@ -423,6 +430,7 @@ class ParameterExtractionStage:
             selected_api_provider=selected_api_provider,
             supports_responses_api=supports_responses_api,
             supports_anthropic_images=supports_anthropic_images,
+            num_variants=num_variants,
             design_system=design_system,
             image_generation_base_url=image_generation_base_url,
             image_generation_api_key=image_generation_api_key,
@@ -461,10 +469,13 @@ class ModelSelectionStage:
         gemini_api_key: str | None = None,
         code_generation_model: str | None = None,
         selected_api_provider: str | None = None,
+        num_variants: int = 1,
     ) -> List[str | Llm]:
         """根据可用的 API Keys 选择模型"""
         try:
-            num_variants = 2 if generation_type == "update" else NUM_VARIANTS
+            # 更新模式固定 2 个 variant
+            if generation_type == "update":
+                num_variants = 2
             variant_models = self._get_variant_models(
                 generation_type,
                 input_mode,
@@ -815,7 +826,9 @@ class StatusBroadcastMiddleware(Middleware):
         is_video_mode = context.extracted_params.input_mode == "video"
         is_update = context.extracted_params.generation_type == "update"
         num_variants = (
-            NUM_VARIANTS_VIDEO if is_video_mode else 2 if is_update else NUM_VARIANTS
+            NUM_VARIANTS_VIDEO if is_video_mode
+            else 2 if is_update
+            else context.extracted_params.num_variants
         )
 
         # Tell frontend how many variants we're using
@@ -860,6 +873,7 @@ class CodeGenerationMiddleware(Middleware):
                 gemini_api_key=context.extracted_params.gemini_api_key,
                 code_generation_model=context.extracted_params.code_generation_model,
                 selected_api_provider=context.extracted_params.selected_api_provider,
+                num_variants=context.extracted_params.num_variants,
             )
             if IS_DEBUG_ENABLED:
                 await context.send_message(

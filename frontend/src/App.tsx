@@ -104,6 +104,8 @@ function App() {
       // API 兼容性检测结果（测试时自动填充）
       supportsResponsesApi: null,
       supportsAnthropicImages: null,
+      // 生成的 options 数量
+      numVariants: 1,
       // Only relevant for hosted version
       isTermOfServiceAccepted: false,
     },
@@ -363,10 +365,10 @@ function App() {
       designSystem: selectedDesignSystem?.content ?? null,
     };
 
-    // Use 4 variants for create, 2 for edits to match backend counts
+    // Use configured variants for create, 2 for edits to match backend counts
     // and avoid a flash when the backend sends the actual variant count
     const initialVariantCount =
-      requestParams.generationType === "create" ? 4 : 2;
+      requestParams.generationType === "create" ? (settings.numVariants ?? 1) : 2;
     const baseCommitObject = {
       variants: Array(initialVariantCount)
         .fill(null)

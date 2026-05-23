@@ -383,6 +383,48 @@ function SettingsTab({ settings, setSettings, appTheme, setAppTheme }: Props) {
             </div>
           </div>
 
+          {/* Generation Options */}
+          <div className="rounded-lg border border-gray-200 bg-white dark:border-zinc-700 dark:bg-zinc-800/60">
+            <div className="border-b border-gray-100 px-4 py-3 dark:border-zinc-700">
+              <h2 className="text-sm font-medium text-gray-900 dark:text-white">
+                Generation Options
+              </h2>
+            </div>
+            <div className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-700 dark:text-zinc-300">
+                    Number of Variants
+                  </p>
+                  <p className="mt-0.5 text-xs text-gray-500 dark:text-zinc-400">
+                    How many code variants to generate per request (1-8)
+                  </p>
+                </div>
+                <Input
+                  type="number"
+                  min={1}
+                  max={8}
+                  className="w-[80px] text-center"
+                  value={settings.numVariants ?? 1}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value, 10);
+                    if (!isNaN(val) && val >= 1 && val <= 8) {
+                      setSettings((s) => ({ ...s, numVariants: val }));
+                    }
+                  }}
+                  onBlur={(e) => {
+                    const val = parseInt(e.target.value, 10);
+                    if (isNaN(val) || val < 1) {
+                      setSettings((s) => ({ ...s, numVariants: 1 }));
+                    } else if (val > 8) {
+                      setSettings((s) => ({ ...s, numVariants: 8 }));
+                    }
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+
           {/* Screenshot by URL */}
           <div className="rounded-lg border border-gray-200 bg-white dark:border-zinc-700 dark:bg-zinc-800/60">
             <div className="border-b border-gray-100 px-4 py-3 dark:border-zinc-700">
