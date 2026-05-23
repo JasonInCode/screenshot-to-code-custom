@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { AppTheme, ApiProvider, EditorTheme, Settings } from "../../types";
 import { capitalize } from "../../lib/utils";
 import {
@@ -9,8 +9,10 @@ import {
 } from "../ui/select";
 import { Input } from "../ui/input";
 import { Switch } from "../ui/switch";
+import { Button } from "../ui/button";
 import { ApiProviderSelector } from "./ApiProviderSelector";
 import { ApiProviderConfig } from "./ApiProviderConfig";
+import { testApiConnection, TestApiResult } from "../../lib/api";
 
 interface Props {
   settings: Settings;
@@ -20,11 +22,80 @@ interface Props {
 }
 
 function SettingsTab({ settings, setSettings, appTheme, setAppTheme }: Props) {
+  const [testLoading, setTestLoading] = useState(false);
+  const [testResult, setTestResult] = useState<TestApiResult | null>(null);
+
+  // 切换 provider 时清除测试结果
+  useEffect(() => {
+    setTestResult(null);
+  }, [settings.selectedApiProvider]);
+
   const handleThemeChange = (theme: EditorTheme) => {
     setSettings((s) => ({
       ...s,
       editorTheme: theme,
     }));
+  };
+
+  // 获取当前选中 provider 的 API Key 和 Base URL
+  const getCurrentProviderConfig = () => {
+    const provider = settings.selectedApiProvider;
+    // 字段名映射（注意 openAi 是大写 A）
+    const apiKeyMap: Record<ApiProvider, keyof Settings> = {
+      openai: "openAiApiKey",
+      anthropic: "anthropicApiKey",
+      gemini: "geminiApiKey",
+    };
+    const baseURLMap: Record<ApiProvider, keyof Settings> = {
+      openai: "openAiBaseURL",
+      anthropic: "anthropicBaseURL",
+      gemini: "geminiBaseURL",
+    };
+    return {
+      apiKey: (settings[apiKeyMap[provider]] as string) || "",
+      baseURL: (settings[baseURLMap[provider]] as string) || null,
+    };
+  };
+
+  // 测试API连通性
+  const handleTestApi = async () => {
+    const { apiKey, baseURL } = getCurrentProviderConfig();
+
+    if (!apiKey) {
+      setTestResult({
+        success: false,
+        message: "Please enter an API key first",
+      });
+      return;
+    }
+
+    setTestLoading(true);
+    setTestResult(null);
+
+    try {
+      const result = await testApiConnection({
+        provider: settings.selectedApiProvider,
+        apiKey,
+        baseURL,
+        model: settings.codeGenerationModel || null,
+      });
+      setTestResult(result);
+
+      // 🔍 测试成功时，保存 API 兼容性信息
+      if (result.success && result.supports_responses_api !== undefined) {
+        setSettings((s) => ({
+          ...s,
+          supportsResponsesApi: result.supports_responses_api ?? null,
+        }));
+      }
+    } catch (error) {
+      setTestResult({
+        success: false,
+        message: error instanceof Error ? error.message : "Unknown error occurred",
+      });
+    } finally {
+      setTestLoading(false);
+    }
   };
 
   return (
@@ -106,11 +177,57 @@ function SettingsTab({ settings, setSettings, appTheme, setAppTheme }: Props) {
 
           {/* API Keys */}
           <div className="rounded-lg border border-gray-200 bg-white dark:border-zinc-700 dark:bg-zinc-800/60">
-            <div className="border-b border-gray-100 px-4 py-3 dark:border-zinc-700">
+            <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3 dark:border-zinc-700">
               <h2 className="text-sm font-medium text-gray-900 dark:text-white">
                 API Keys
               </h2>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleTestApi}
+                disabled={testLoading}
+                className="h-7 px-3 text-xs"
+              >
+                {testLoading ? (
+                  <>
+                    <svg
+                      className="mr-1.5 h-3 w-3 animate-spin"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      />
+                    </svg>
+                    Testing...
+                  </>
+                ) : (
+                  "Test"
+                )}
+              </Button>
             </div>
+            {testResult && (
+              <div
+                className={`mx-4 mt-3 rounded-md px-3 py-2 text-xs ${
+                  testResult.success
+                    ? "bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400"
+                    : "bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400"
+                }`}
+              >
+                {testResult.message}
+              </div>
+            )}
             <div className="p-4">
               <ApiProviderSelector
                 value={settings.selectedApiProvider}
