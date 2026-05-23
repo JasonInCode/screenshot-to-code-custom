@@ -20,6 +20,10 @@ A simple tool to convert screenshots, mockups and Figma designs into clean, func
 - **Download button always visible** — The download button is shown at all times (even during generation), allowing you to download incomplete code at any stage.
 - **Custom image generation settings** — Configure your own image generation Provider (OpenAI-compatible or DashScope native), Base URL, API Key, and Model in Settings > Image Generation. Supports DashScope/TokenPlan models with rate-limit retry (exponential backoff, 10 retries on 429).
 - **One-click startup script** — Run `python start.py` to kill existing processes on configured ports and launch frontend + backend in separate terminal windows with live logs. Supports `--frontend-port` and `--backend-port` flags.
+- **API connectivity test** — Click the "Test" button in Settings > API Keys to verify your API connection. Automatically detects whether the API supports OpenAI's Responses API or Chat Completions API, and adapts accordingly.
+- **Clipboard paste support** — Paste images directly from clipboard (Ctrl+V) in the upload area, in addition to drag-and-drop and file picker.
+- **Smart tool availability** — Tools like `remove_background` and `retrieve_option` are only registered when their dependencies are available (e.g., Replicate API key configured, option codes present), preventing unnecessary tool call failures.
+- **Chat Completions API compatibility** — For third-party services (e.g., MiniMax) that only support Chat Completions API (`/chat/completions`), the system automatically uses the appropriate API format based on test results.
 
 https://github.com/user-attachments/assets/85b911c0-efea-4957-badb-daa97ec402ad
 
