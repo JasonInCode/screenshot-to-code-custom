@@ -779,7 +779,9 @@ function App() {
       className={`dark:bg-black dark:text-white ${
         appState === AppState.CODING || appState === AppState.CODE_READY
           ? "flex h-dvh flex-col overflow-hidden lg:block lg:h-screen"
-          : "min-h-screen"
+          : isSettingsOpen
+            ? "flex h-dvh flex-col overflow-hidden lg:block lg:h-screen"
+            : "min-h-screen"
       }`}
     >
       {IS_RUNNING_ON_CLOUD && <PicoBadge />}

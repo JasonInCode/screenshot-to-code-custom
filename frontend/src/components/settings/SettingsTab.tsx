@@ -101,14 +101,14 @@ function SettingsTab({ settings, setSettings, appTheme, setAppTheme }: Props) {
 
   return (
     <div className="flex-1 overflow-y-auto">
-      <div className="px-4 py-4 lg:px-6 lg:py-6">
-        {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
-            Settings
-          </h1>
-        </div>
+      {/* Header - 固定在顶部 */}
+      <div className="sticky top-0 z-10 border-b border-gray-200 bg-white px-4 py-4 dark:border-zinc-700 dark:bg-zinc-900 lg:px-6 lg:py-4">
+        <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
+          Settings
+        </h1>
+      </div>
 
+      <div className="px-4 py-4 lg:px-6 lg:py-6">
         <div className="mx-auto max-w-lg space-y-6">
           {/* Theme */}
           <div className="rounded-lg border border-gray-200 bg-white dark:border-zinc-700 dark:bg-zinc-800/60">
