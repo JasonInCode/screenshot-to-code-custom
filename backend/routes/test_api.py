@@ -18,6 +18,7 @@ class TestApiResponse(BaseModel):
     message: str
     model: Optional[str] = None
     supports_responses_api: Optional[bool] = None  # 是否支持 Responses API
+    supports_anthropic_images: Optional[bool] = None  # 是否支持 Anthropic 图片格式
 
 
 # 默认 Base URL
@@ -97,7 +98,7 @@ async def test_openai(api_key: str, base_url: str, model: str) -> TestApiRespons
 
 
 async def test_anthropic(api_key: str, base_url: str, model: str) -> TestApiResponse:
-    """测试 Anthropic API 连通性"""
+    """测试 Anthropic API 连通性，同时检测是否是官方 API（支持 Anthropic 图片格式）"""
     async with httpx.AsyncClient(timeout=30.0) as client:
         response = await client.post(
             f"{base_url}/v1/messages",
@@ -116,10 +117,15 @@ async def test_anthropic(api_key: str, base_url: str, model: str) -> TestApiResp
         if response.status_code == 200:
             data = response.json()
             used_model = data.get("model", model)
+
+            # Anthropic 兼容接口始终使用原生图片格式
+            supports_anthropic_images = True
+
             return TestApiResponse(
                 success=True,
                 message=f"Connection successful! Model: {used_model}",
                 model=used_model,
+                supports_anthropic_images=supports_anthropic_images,
             )
         else:
             error_data = response.json().get("error", {})

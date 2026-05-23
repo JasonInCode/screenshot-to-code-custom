@@ -35,6 +35,7 @@ export interface Settings {
   selectedDesignSystemId: string | null;
   // API 兼容性检测结果（测试时自动填充）
   supportsResponsesApi: boolean | null;
+  supportsAnthropicImages: boolean | null;  // 是否支持 Anthropic 图片格式
   // Only relevant for hosted version
   isTermOfServiceAccepted: boolean;
 }

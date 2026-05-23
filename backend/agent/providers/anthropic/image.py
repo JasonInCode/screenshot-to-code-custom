@@ -48,10 +48,17 @@ def process_image(image_data_url: str) -> tuple[str, str]:
 
     Returns (media_type, base64_data) suitable for an ``image`` content block.
     """
+    # 检查是否是 data URL 格式
+    if not image_data_url.startswith("data:"):
+        print(f"⚠️  IMAGE: 非 data URL 格式，跳过处理: {image_data_url[:100]}...")
+        # 返回一个默认的空图片或者抛出更友好的错误
+        raise ValueError(f"不支持的图片 URL 格式: {image_data_url[:50]}...")
+
     media_type = image_data_url.split(";")[0].split(":")[1]
     base64_data = image_data_url.split(",")[1]
     image_bytes = base64.b64decode(base64_data)
 
+    print(f"🔍 IMAGE: media_type={media_type}, data_length={len(base64_data)}")
     img = Image.open(io.BytesIO(image_bytes))
 
     is_under_dimension_limit = (

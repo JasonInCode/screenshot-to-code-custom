@@ -26,6 +26,7 @@ def create_provider_session(
     gemini_base_url: Optional[str],
     selected_api_provider: str | None = None,
     supports_responses_api: bool | None = None,
+    supports_anthropic_images: bool | None = None,
     has_option_codes: bool = False,
 ) -> ProviderSession:
     canonical_tools = canonical_tool_definitions(
@@ -61,11 +62,15 @@ def create_provider_session(
             if not anthropic_api_key:
                 raise Exception("Anthropic API key is missing.")
             client = AsyncAnthropic(api_key=anthropic_api_key, base_url=anthropic_base_url)
+            # 🔍 通过 base URL 检测是否是官方 Anthropic API
+            # 官方 API 支持 eager_input_streaming 等特有字段
+            is_official_anthropic = not anthropic_base_url or "api.anthropic.com" in (anthropic_base_url or "")
             return AnthropicProviderSession(
                 client=client,
                 model=model,
                 prompt_messages=prompt_messages,
-                tools=serialize_anthropic_tools(canonical_tools),
+                tools=serialize_anthropic_tools(canonical_tools, include_eager_streaming=is_official_anthropic),
+                supports_anthropic_images=True,  # Anthropic 兼容接口始终使用原生图片格式
             )
         if provider == "gemini":
             if not gemini_api_key:

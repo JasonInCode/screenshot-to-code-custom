@@ -33,45 +33,67 @@ ADAPTIVE_THINKING_MODELS = {
 
 def _convert_openai_messages_to_claude(
     messages: List[ChatCompletionMessageParam],
+    convert_images: bool = True,
 ) -> tuple[str, List[Dict[str, Any]]]:
     cloned_messages = copy.deepcopy(messages)
 
     system_prompt = cast(str, cloned_messages[0].get("content"))
     claude_messages = [dict(message) for message in cloned_messages[1:]]
 
-    for message in claude_messages:
+    for msg_idx, message in enumerate(claude_messages):
         if not isinstance(message["content"], list):
             continue
 
-        for content in message["content"]:  # type: ignore
-            if content["type"] != "image_url":
+        new_content: List[Dict[str, Any]] = []
+        for content_idx, content in enumerate(message["content"]):  # type: ignore
+            if not isinstance(content, dict):
                 continue
 
-            content["type"] = "image"
-            image_data_url = cast(str, content["image_url"]["url"])
-            media_type, base64_data = process_image(image_data_url)
-            del content["image_url"]
-            content["source"] = {
-                "type": "base64",
-                "media_type": media_type,
-                "data": base64_data,
-            }
+            content_type = content.get("type")
+
+            # 处理图片类型：转换成 Anthropic 的 image 格式
+            if content_type == "image_url":
+                image_data_url = cast(str, content.get("image_url", {}).get("url", ""))
+                if image_data_url:
+                    if convert_images:
+                        media_type, base64_data = process_image(image_data_url)
+                        new_content.append({
+                            "type": "image",
+                            "source": {
+                                "type": "base64",
+                                "media_type": media_type,
+                                "data": base64_data,
+                            },
+                        })
+                    else:
+                        new_content.append(content)
+            elif content_type == "text":
+                new_content.append({
+                    "type": "text",
+                    "text": content.get("text", ""),
+                })
+
+        if new_content:
+            message["content"] = new_content
 
     return system_prompt, claude_messages
 
 
 def serialize_anthropic_tools(
     tools: List[CanonicalToolDefinition],
+    include_eager_streaming: bool = True,
 ) -> List[Dict[str, Any]]:
-    return [
-        {
+    result = []
+    for tool in tools:
+        item: Dict[str, Any] = {
             "name": tool.name,
             "description": tool.description,
-            "eager_input_streaming": True,
             "input_schema": copy.deepcopy(tool.parameters),
         }
-        for tool in tools
-    ]
+        if include_eager_streaming:
+            item["eager_input_streaming"] = True
+        result.append(item)
+    return result
 
 
 @dataclass
@@ -200,40 +222,51 @@ class AnthropicProviderSession(ProviderSession):
         model: str | Llm,
         prompt_messages: List[ChatCompletionMessageParam],
         tools: List[Dict[str, Any]],
+        supports_anthropic_images: bool | None = None,
     ):
         self._client = client
         self._model = model
         self._tools = tools
         self._total_usage = TokenUsage()
-        system_prompt, claude_messages = _convert_openai_messages_to_claude(prompt_messages)
+
+        # Anthropic 兼容接口始终使用原生图片格式
+        convert_images = True
+        system_prompt, claude_messages = _convert_openai_messages_to_claude(
+            prompt_messages, convert_images=convert_images
+        )
         self._system_prompt = system_prompt
         self._messages = claude_messages
 
     async def stream_turn(self, on_event: EventSink) -> ProviderTurn:
         # 自定义模型直接用字符串，已知 Llm 值用 .value
         model_name = self._model if isinstance(self._model, str) else self._model.value
+
         stream_kwargs: Dict[str, Any] = {
             "model": model_name,
             "max_tokens": 50000,
             "system": self._system_prompt,
             "messages": self._messages,
             "tools": self._tools,
-            "cache_control": {"type": "ephemeral"},
         }
 
-        # 自定义模型不配置 thinking；已知 Llm 值按配置表
+        # 🔍 判断是否是官方 Anthropic API（通过检查是否是 Llm 枚举值）
         if isinstance(self._model, Llm):
-            if self._model.value in ADAPTIVE_THINKING_MODELS:
+            # 官方 API 支持 cache_control
+            stream_kwargs["cache_control"] = {"type": "ephemeral"}
+
+            # 官方 API 按配置表设置 thinking
+            model_value = self._model.value
+            if model_value in ADAPTIVE_THINKING_MODELS:
                 stream_kwargs["thinking"] = {
                     "type": "adaptive",
                 }
                 effort = (
                     "high"
-                    if self._model.value == Llm.CLAUDE_SONNET_4_6.value
+                    if model_value == Llm.CLAUDE_SONNET_4_6.value
                     else "max"
                 )
                 stream_kwargs["output_config"] = {"effort": effort}
-            elif self._model.value in THINKING_MODELS:
+            elif model_value in THINKING_MODELS:
                 stream_kwargs["thinking"] = {
                     "type": "enabled",
                     "budget_tokens": 10000,

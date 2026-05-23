@@ -243,6 +243,7 @@ class ExtractedParams:
     code_generation_model: str | None = None
     selected_api_provider: str | None = None
     supports_responses_api: bool | None = None  # API 兼容性检测结果
+    supports_anthropic_images: bool | None = None  # 是否支持 Anthropic 图片格式
     design_system: str | None = None
     image_generation_base_url: str | None = None
     image_generation_api_key: str | None = None
@@ -374,6 +375,10 @@ class ParameterExtractionStage:
         if not isinstance(supports_responses_api, bool):
             supports_responses_api = None
 
+        supports_anthropic_images = params.get("supportsAnthropicImages")
+        if not isinstance(supports_anthropic_images, bool):
+            supports_anthropic_images = None
+
         # 提取图片生成配置
         image_generation_base_url = params.get("imageGenerationBaseUrl")
         if isinstance(image_generation_base_url, str) and image_generation_base_url.strip():
@@ -417,6 +422,7 @@ class ParameterExtractionStage:
             code_generation_model=code_generation_model,
             selected_api_provider=selected_api_provider,
             supports_responses_api=supports_responses_api,
+            supports_anthropic_images=supports_anthropic_images,
             design_system=design_system,
             image_generation_base_url=image_generation_base_url,
             image_generation_api_key=image_generation_api_key,
@@ -608,6 +614,7 @@ class AgenticGenerationStage:
         option_codes: List[str] | None,
         selected_api_provider: str | None = None,
         supports_responses_api: bool | None = None,
+        supports_anthropic_images: bool | None = None,
         image_generation_base_url: str | None = None,
         image_generation_api_key: str | None = None,
         image_generation_model: str | None = None,
@@ -625,6 +632,7 @@ class AgenticGenerationStage:
         self.option_codes = option_codes or []
         self.selected_api_provider = selected_api_provider
         self.supports_responses_api = supports_responses_api
+        self.supports_anthropic_images = supports_anthropic_images
         self.image_generation_base_url = image_generation_base_url
         self.image_generation_api_key = image_generation_api_key
         self.image_generation_model = image_generation_model
@@ -693,7 +701,7 @@ class AgenticGenerationStage:
                 image_generation_model=self.image_generation_model,
                 image_generation_provider=self.image_generation_provider,
             )
-            completion = await runner.run(model, prompt_messages, selected_api_provider=self.selected_api_provider, supports_responses_api=self.supports_responses_api)
+            completion = await runner.run(model, prompt_messages, selected_api_provider=self.selected_api_provider, supports_responses_api=self.supports_responses_api, supports_anthropic_images=self.supports_anthropic_images)
             if completion:
                 await self.send_message("setCode", completion, index, None, None)
             await self.send_message(
@@ -875,6 +883,7 @@ class CodeGenerationMiddleware(Middleware):
                 option_codes=context.extracted_params.option_codes,
                 selected_api_provider=context.extracted_params.selected_api_provider,
                 supports_responses_api=context.extracted_params.supports_responses_api,
+                supports_anthropic_images=context.extracted_params.supports_anthropic_images,
                 image_generation_base_url=context.extracted_params.image_generation_base_url,
                 image_generation_api_key=context.extracted_params.image_generation_api_key,
                 image_generation_model=context.extracted_params.image_generation_model,

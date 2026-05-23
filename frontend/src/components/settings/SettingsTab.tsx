@@ -82,10 +82,11 @@ function SettingsTab({ settings, setSettings, appTheme, setAppTheme }: Props) {
       setTestResult(result);
 
       // 🔍 测试成功时，保存 API 兼容性信息
-      if (result.success && result.supports_responses_api !== undefined) {
+      if (result.success) {
         setSettings((s) => ({
           ...s,
           supportsResponsesApi: result.supports_responses_api ?? null,
+          supportsAnthropicImages: result.supports_anthropic_images ?? null,
         }));
       }
     } catch (error) {

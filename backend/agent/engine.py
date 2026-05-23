@@ -54,6 +54,7 @@ class AgentEngine:
         self.image_generation_api_key = image_generation_api_key
         self.image_generation_model = image_generation_model
         self.image_generation_provider = image_generation_provider
+        self.option_codes = option_codes or []
 
         self.file_state = AgentFileState()
         if initial_file_state and initial_file_state.get("content"):
@@ -241,7 +242,7 @@ class AgentEngine:
 
         raise Exception("Agent exceeded max tool turns")
 
-    async def run(self, model: str | Llm, prompt_messages: List[ChatCompletionMessageParam], selected_api_provider: str | None = None, supports_responses_api: bool | None = None) -> str:
+    async def run(self, model: str | Llm, prompt_messages: List[ChatCompletionMessageParam], selected_api_provider: str | None = None, supports_responses_api: bool | None = None, supports_anthropic_images: bool | None = None) -> str:
         seed_file_state_from_messages(self.file_state, prompt_messages)
 
         session = create_provider_session(
@@ -256,6 +257,7 @@ class AgentEngine:
             gemini_base_url=self.gemini_base_url,
             selected_api_provider=selected_api_provider,
             supports_responses_api=supports_responses_api,
+            supports_anthropic_images=supports_anthropic_images,
             has_option_codes=bool(self.option_codes),
         )
         try:

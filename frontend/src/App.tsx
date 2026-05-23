@@ -103,6 +103,7 @@ function App() {
       selectedDesignSystemId: null,
       // API 兼容性检测结果（测试时自动填充）
       supportsResponsesApi: null,
+      supportsAnthropicImages: null,
       // Only relevant for hosted version
       isTermOfServiceAccepted: false,
     },

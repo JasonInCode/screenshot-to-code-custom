@@ -14,6 +14,7 @@ export interface TestApiResult {
   message: string;
   model?: string | null;
   supports_responses_api?: boolean | null;  // 是否支持 Responses API
+  supports_anthropic_images?: boolean | null;  // 是否支持 Anthropic 图片格式
 }
 
 // 测试AI API连通性
