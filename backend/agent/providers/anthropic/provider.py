@@ -249,32 +249,22 @@ class AnthropicProviderSession(ProviderSession):
             "tools": self._tools,
         }
 
-        # 🔍 判断是否是官方 Anthropic API（通过检查是否是 Llm 枚举值）
+        # 官方 API 支持 cache_control
         if isinstance(self._model, Llm):
-            # 官方 API 支持 cache_control
             stream_kwargs["cache_control"] = {"type": "ephemeral"}
 
-            # 官方 API 按配置表设置 thinking
-            model_value = self._model.value
-            if model_value in ADAPTIVE_THINKING_MODELS:
-                stream_kwargs["thinking"] = {
-                    "type": "adaptive",
-                }
-                effort = (
-                    "high"
-                    if model_value == Llm.CLAUDE_SONNET_4_6.value
-                    else "max"
-                )
-                stream_kwargs["output_config"] = {"effort": effort}
-            elif model_value in THINKING_MODELS:
-                stream_kwargs["thinking"] = {
-                    "type": "enabled",
-                    "budget_tokens": 10000,
-                }
-            else:
-                stream_kwargs["temperature"] = 0.0
+        # 设置 thinking 模式
+        model_value = self._model.value if isinstance(self._model, Llm) else self._model
+        if model_value in ADAPTIVE_THINKING_MODELS:
+            stream_kwargs["thinking"] = {"type": "adaptive"}
+            effort = "high" if model_value == Llm.CLAUDE_SONNET_4_6.value else "max"
+            stream_kwargs["output_config"] = {"effort": effort}
         else:
-            stream_kwargs["temperature"] = 0.0
+            # 官方 thinking 模型 + 第三方兼容 API（如阿里云百炼）均使用 enabled 模式
+            stream_kwargs["thinking"] = {
+                "type": "enabled",
+                "budget_tokens": 10000,
+            }
 
         state = AnthropicParseState()
         async with self._client.messages.stream(**stream_kwargs) as stream:
