@@ -36,6 +36,8 @@ export interface Settings {
   // API 兼容性检测结果（测试时自动填充）
   supportsResponsesApi: boolean | null;
   supportsAnthropicImages: boolean | null;  // 是否支持 Anthropic 图片格式
+  // 生成的 options 数量
+  numVariants: number;
   // Only relevant for hosted version
   isTermOfServiceAccepted: boolean;
 }
@@ -93,6 +95,7 @@ export interface CodeGenerationParams {
     content: string;
   };
   optionCodes?: string[];
+  retryVariantIndex?: number;
 }
 
 export type FullGenerationSettings = CodeGenerationParams &

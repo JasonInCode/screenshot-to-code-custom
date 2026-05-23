@@ -58,6 +58,7 @@ function App() {
     resetCommits,
     resetHead,
     updateVariantStatus,
+    resetVariant,
     resizeVariants,
     setVariantModels,
     appendVariantHistoryMessage,
@@ -317,6 +318,145 @@ function App() {
       // TODO: Fix this
       doCreateFromText(initialPrompt);
     }
+  };
+
+  // 重新生成单个 variant
+  const retryVariant = (variantIndex: number) => {
+    if (head === null) {
+      toast.error(
+        "No current version set. Please contact support via chat or Github."
+      );
+      return;
+    }
+
+    const currentCommit = commits[head];
+    if (currentCommit.type !== "ai_create") {
+      toast.error("Only the first version can be regenerated.");
+      return;
+    }
+
+    // 结束当前 variant 的进行中事件
+    const finishVariantEvents = (
+      ref: React.MutableRefObject<Record<number, string>>
+    ) => {
+      const eventId = ref.current[variantIndex];
+      if (eventId) {
+        finishAgentEvent(head, variantIndex, eventId, {
+          status: "error",
+          endedAt: Date.now(),
+        });
+        delete ref.current[variantIndex];
+      }
+    };
+
+    finishVariantEvents(lastThinkingEventIdRef);
+    finishVariantEvents(lastAssistantEventIdRef);
+    finishVariantEvents(lastToolEventIdRef);
+
+    // 重置该 variant 的状态
+    resetVariant(head, variantIndex);
+    setAppState(AppState.CODING);
+
+    const selectedDesignSystem = designSystems.find(
+      (ds) => ds.id === settings.selectedDesignSystemId
+    );
+
+    // 构建请求参数：只生成 1 个 variant
+    const currentInputMode = useProjectStore.getState().inputMode;
+    const updatedParams = {
+      generationType: "create" as const,
+      inputMode: currentInputMode,
+      prompt: {
+        text: "",
+        images: referenceImages,
+        videos: [],
+      },
+      ...settings,
+      designSystem: selectedDesignSystem?.content ?? null,
+      numVariants: 1,
+      retryVariantIndex: variantIndex,
+    };
+
+    generateCode(wsRef, updatedParams, {
+      onChange: (token) => {
+        // 将后端 variantIndex=0 映射到实际重试的 variant
+        appendCommitCode(head, variantIndex, token);
+      },
+      onSetCode: (code) => {
+        setCommitCode(head, variantIndex, code);
+      },
+      onStatusUpdate: (line) =>
+        appendExecutionConsole(variantIndex, line),
+      onVariantComplete: () => {
+        updateVariantStatus(head, variantIndex, "complete");
+        const currentCode =
+          useProjectStore.getState().commits[head]?.variants[variantIndex]
+            ?.code || "";
+        if (currentCode.trim().length > 0) {
+          appendVariantHistoryMessage(
+            head,
+            variantIndex,
+            buildAssistantHistoryMessage(currentCode)
+          );
+        }
+      },
+      onVariantError: (_vi, error) => {
+        updateVariantStatus(head, variantIndex, "error", error);
+      },
+      onVariantCount: () => {
+        // 重试单个 variant 时不调整数量
+      },
+      onVariantModels: () => {},
+      onThinking: (content, _vi, eventId) => {
+        if (!eventId) return;
+        lastThinkingEventIdRef.current[variantIndex] = eventId;
+        startAgentEvent(head, variantIndex, {
+          id: eventId,
+          type: "thinking",
+          status: "running",
+          startedAt: Date.now(),
+        });
+        appendAgentEventContent(head, variantIndex, eventId, content);
+      },
+      onAssistant: (content, _vi, eventId) => {
+        if (!eventId) return;
+        lastAssistantEventIdRef.current[variantIndex] = eventId;
+        startAgentEvent(head, variantIndex, {
+          id: eventId,
+          type: "assistant",
+          status: "running",
+          startedAt: Date.now(),
+        });
+        appendAgentEventContent(head, variantIndex, eventId, content);
+      },
+      onToolStart: (data, _vi, eventId) => {
+        if (!eventId) return;
+        startAgentEvent(head, variantIndex, {
+          id: eventId,
+          type: "tool",
+          status: "running",
+          toolName: data?.name,
+          input: data?.input,
+          startedAt: Date.now(),
+        });
+        lastToolEventIdRef.current[variantIndex] = eventId;
+      },
+      onToolResult: (data, _vi, eventId) => {
+        if (!eventId) return;
+        finishAgentEvent(head, variantIndex, eventId, {
+          status: "complete",
+          output: data,
+          endedAt: Date.now(),
+        });
+        delete lastToolEventIdRef.current[variantIndex];
+      },
+      onCancel: () => {
+        updateVariantStatus(head, variantIndex, "cancelled");
+      },
+      onComplete: () => {
+        setAppState(AppState.CODE_READY);
+      },
+    });
   };
 
   // Used when the user cancels the code generation
@@ -897,6 +1037,7 @@ function App() {
                     showSelectAndEditFeature={showSelectAndEditFeature}
                     doUpdate={doUpdate}
                     regenerate={regenerate}
+                    retryVariant={retryVariant}
                     cancelCodeGeneration={cancelCodeGeneration}
                     designSystem={{
                       designSystems,

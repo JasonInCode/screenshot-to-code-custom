@@ -14,16 +14,16 @@ A simple tool to convert screenshots, mockups and Figma designs into clean, func
 
 ## ✨ Custom Enhancements
 
-- **Custom model ID and Provider URL** — Type any model ID (e.g. `qwen3-6-plus`, `deepseek-v3`) in the Model Combobox and it will be routed to the selected Provider (OpenAI/Anthropic/Gemini). Each Provider also has its own Base URL field for proxy or self-hosted services.
-- **Provider tab UI** — API Keys section redesigned as Provider tabs (OpenAI/Anthropic/Gemini) with conditional config panels. The Model Combobox offers preset models per provider and accepts custom IDs.
-- **Unlimited image uploads** — Removed the 5-image upload limit; upload as many screenshots as you need. The entire dropzone area is clickable to open the file picker.
+- **Custom Provider & Model** — API Keys redesigned as Provider tabs (OpenAI/Anthropic/Gemini) with per-provider Base URL fields. Type any model ID (e.g. `qwen3-6-plus`, `deepseek-v3`) in the Model Combobox and it routes to the selected Provider. Supports Chat Completions API for third-party services that don't offer Responses API.
+- **API connectivity test** — Click the "Test" button in Settings > API Keys to verify your API connection. Automatically detects whether the API supports OpenAI's Responses API or Chat Completions API, and adapts accordingly.
+- **Thinking mode support** — Unified thinking/reasoning output for both Anthropic and OpenAI APIs. Official Claude models use adaptive thinking; third-party compatible APIs (e.g., Alibaba Cloud MaaS) use enabled mode. Custom OpenAI models also display thinking events.
+- **Smart tool availability** — Tools like `remove_background` and `retrieve_option` are only registered when their dependencies are available (e.g., Replicate API key configured, option codes present), preventing unnecessary tool call failures.
+- **Configurable variant count** — Configure how many code variants (Options) to generate per request (1-8) in Settings > Generation Options. Default is 1.
+- **Single variant retry** — Click the retry button on any individual variant thumbnail to regenerate only that variant. A "Retry All" button regenerates all variants at once.
+- **Image uploads & preview** — Upload as many screenshots as you need (no limit). Supports drag-and-drop, file picker, and clipboard paste (Ctrl+V). Click any uploaded image to view it in a full-screen lightbox with zoom controls.
 - **Download button always visible** — The download button is shown at all times (even during generation), allowing you to download incomplete code at any stage.
 - **Custom image generation settings** — Configure your own image generation Provider (OpenAI-compatible or DashScope native), Base URL, API Key, and Model in Settings > Image Generation. Supports DashScope/TokenPlan models with rate-limit retry (exponential backoff, 10 retries on 429).
 - **One-click startup script** — Run `python start.py` to kill existing processes on configured ports and launch frontend + backend in separate terminal windows with live logs. Supports `--frontend-port` and `--backend-port` flags.
-- **API connectivity test** — Click the "Test" button in Settings > API Keys to verify your API connection. Automatically detects whether the API supports OpenAI's Responses API or Chat Completions API, and adapts accordingly.
-- **Clipboard paste support** — Paste images directly from clipboard (Ctrl+V) in the upload area, in addition to drag-and-drop and file picker.
-- **Smart tool availability** — Tools like `remove_background` and `retrieve_option` are only registered when their dependencies are available (e.g., Replicate API key configured, option codes present), preventing unnecessary tool call failures.
-- **Chat Completions API compatibility** — For third-party services (e.g., MiniMax) that only support Chat Completions API (`/chat/completions`), the system automatically uses the appropriate API format based on test results.
 
 https://github.com/user-attachments/assets/85b911c0-efea-4957-badb-daa97ec402ad
 

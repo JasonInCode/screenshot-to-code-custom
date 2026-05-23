@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useThrottle } from "../../hooks/useThrottle";
 import { getModelDisplayName } from "../../lib/models";
 import WorkingPulse from "../core/WorkingPulse";
+import { LuRefreshCw } from "react-icons/lu";
 
 const IFRAME_WIDTH = 1280;
 const IFRAME_HEIGHT = 550;
@@ -65,7 +66,11 @@ function VariantThumbnail({ code, isSelected }: VariantThumbnailProps) {
   );
 }
 
-function Variants() {
+interface VariantsProps {
+  retryVariant: (variantIndex: number) => void;
+}
+
+function Variants({ retryVariant }: VariantsProps) {
   const { head, commits, updateSelectedVariantIndex } = useProjectStore();
 
   const commit = head ? commits[head] : null;
@@ -116,10 +121,12 @@ function Variants() {
           if (variant.status === "complete") statusColor = "bg-green-500";
           else if (variant.status === "error" || variant.status === "cancelled") statusColor = "bg-red-500";
 
+          const canRetry = variant.status === "complete" || variant.status === "error";
+
           return (
             <div
               key={index}
-              className={`w-full rounded cursor-pointer overflow-hidden ${
+              className={`group relative w-full rounded cursor-pointer overflow-hidden ${
                 index === selectedVariantIndex
                   ? "ring-2 ring-blue-400 dark:ring-blue-500"
                   : "ring-1 ring-gray-200 dark:ring-gray-700 hover:ring-gray-300 dark:hover:ring-gray-600"
@@ -131,6 +138,19 @@ function Variants() {
                 code={variant.code}
                 isSelected={index === selectedVariantIndex}
               />
+              {/* 单个 variant 重试按钮 */}
+              {canRetry && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    retryVariant(index);
+                  }}
+                  className="absolute top-1 right-1 h-5 w-5 bg-black/50 hover:bg-blue-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                  title={`Retry Option ${index + 1}`}
+                >
+                  <LuRefreshCw className="h-3 w-3" />
+                </button>
+              )}
               <div className="flex items-center px-2 py-1 bg-white dark:bg-zinc-900">
                 <span className="inline-flex min-w-0 items-center text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
                   <span className={`w-2 h-2 rounded-full mr-1.5 ${statusColor}`} />

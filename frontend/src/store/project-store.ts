@@ -53,6 +53,7 @@ interface ProjectStore {
     status: VariantStatus,
     errorMessage?: string
   ) => void;
+  resetVariant: (hash: CommitHash, variantIndex: number) => void;
   resizeVariants: (hash: CommitHash, count: number) => void;
   setVariantModels: (hash: CommitHash, models: string[]) => void;
 
@@ -300,6 +301,31 @@ export const useProjectStore = create<ProjectStore>((set) => ({
                         ? undefined
                         : variant.completedAt ?? Date.now(),
                     errorMessage: status === "error" ? errorMessage : undefined,
+                  }
+                : variant
+            ),
+          },
+        },
+      };
+    }),
+  resetVariant: (hash: CommitHash, variantIndex: number) =>
+    set((state) => {
+      const commit = state.commits[hash];
+      if (!commit) return state;
+
+      return {
+        commits: {
+          ...state.commits,
+          [hash]: {
+            ...commit,
+            variants: commit.variants.map((variant, index) =>
+              index === variantIndex
+                ? {
+                    code: "",
+                    history: variant.history,
+                    requestStartedAt: Date.now(),
+                    status: "generating" as VariantStatus,
+                    agentEvents: [],
                   }
                 : variant
             ),
