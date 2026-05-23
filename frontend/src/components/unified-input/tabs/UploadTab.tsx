@@ -1,13 +1,14 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useDropzone } from "react-dropzone";
 import { toast } from "react-hot-toast";
-import { Cross2Icon, ImageIcon } from "@radix-ui/react-icons";
+import { Cross2Icon, ImageIcon, ZoomInIcon } from "@radix-ui/react-icons";
 import { Button } from "../../ui/button";
 import { ScreenRecorderState } from "../../../types";
 import ScreenRecorder from "../../recording/ScreenRecorder";
 import OutputSettingsSection from "../../settings/OutputSettingsSection";
 import { DesignSystemSelectorProps } from "../../settings/DesignSystemSelector";
 import { Stack } from "../../../lib/stacks";
+import ImageLightbox from "../../ImageLightbox";
 
 function fileToDataURL(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -59,6 +60,7 @@ function UploadTab({ doCreate, stack, setStack, designSystem }: Props) {
   const [textPrompt, setTextPrompt] = useState("");
   const [showTextPrompt, setShowTextPrompt] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const textInputRef = useRef<HTMLTextAreaElement>(null);
   const filesRef = useRef<FileWithPreview[]>([]);
   const [screenRecorderState, setScreenRecorderState] =
@@ -377,12 +379,15 @@ function UploadTab({ doCreate, stack, setStack, designSystem }: Props) {
                   </button>
                 </div>
                 <div className="mt-3 rounded-md border border-gray-100 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-800 p-2 overflow-hidden" onClick={(e) => e.stopPropagation()}>
-                  <div className="flex h-[280px] w-full items-center justify-center overflow-hidden rounded bg-white dark:bg-zinc-900">
+                  <div
+                    className="flex h-[280px] w-full items-center justify-center overflow-hidden rounded bg-white dark:bg-zinc-900 cursor-zoom-in"
+                    onClick={() => files[selectedIndex] && setLightboxImage(files[selectedIndex].preview)}
+                  >
                     {files[selectedIndex] && (
                       <img
                         src={files[selectedIndex].preview}
                         alt={`Uploaded screenshot ${selectedIndex + 1}`}
-                        className="h-auto w-auto max-h-full max-w-full object-contain"
+                        className="h-auto w-auto max-h-full max-w-full object-contain pointer-events-none"
                       />
                     )}
                   </div>
@@ -406,14 +411,24 @@ function UploadTab({ doCreate, stack, setStack, designSystem }: Props) {
                           className="h-full w-full object-cover"
                         />
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveImage(index)}
-                        className="absolute -top-1 -right-1 h-4 w-4 bg-gray-800 hover:bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                        aria-label={`Remove screenshot ${index + 1}`}
-                      >
-                        <Cross2Icon className="h-2 w-2" />
-                      </button>
+                      <div className="absolute -top-1 -right-1 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          type="button"
+                          onClick={() => setLightboxImage(file.preview)}
+                          className="h-4 w-4 bg-gray-800 hover:bg-blue-600 text-white rounded-full flex items-center justify-center"
+                          aria-label={`Zoom screenshot ${index + 1}`}
+                        >
+                          <ZoomInIcon className="h-2 w-2" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveImage(index)}
+                          className="h-4 w-4 bg-gray-800 hover:bg-red-600 text-white rounded-full flex items-center justify-center"
+                          aria-label={`Remove screenshot ${index + 1}`}
+                        >
+                          <Cross2Icon className="h-2 w-2" />
+                        </button>
+                      </div>
                     </div>
                   ))}
                   <button
@@ -505,6 +520,10 @@ function UploadTab({ doCreate, stack, setStack, designSystem }: Props) {
           />
         </div>
       )}
+      <ImageLightbox
+        image={lightboxImage}
+        onClose={() => setLightboxImage(null)}
+      />
     </div>
   );
 }

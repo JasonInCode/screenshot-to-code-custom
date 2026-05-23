@@ -53,13 +53,10 @@ function ImageLightbox({ image, onClose }: ImageLightboxProps) {
     );
     setFitScale(scale);
 
-    // Set initial zoom to target DEFAULT_DISPLAY_WIDTH (only clamp to viewport width)
+    // 初始缩放为 Fit（适配视口）
     if (!initialZoomSet.current) {
       initialZoomSet.current = true;
-      const targetScale = DEFAULT_DISPLAY_WIDTH / naturalSize.width;
-      const maxWidthScale = viewportWidth / naturalSize.width;
-      const clampedScale = Math.min(targetScale, maxWidthScale);
-      setZoom(Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, clampedScale / scale)));
+      setZoom(1);
     }
   }, [naturalSize]);
 
