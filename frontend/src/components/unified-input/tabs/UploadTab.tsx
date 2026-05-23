@@ -123,7 +123,7 @@ function UploadTab({ doCreate, stack, setStack, designSystem }: Props) {
         return;
       }
 
-      let filesToAdd = acceptedFiles;
+      const filesToAdd = acceptedFiles;
 
       const newFiles = filesToAdd.map((file: File) =>
         Object.assign(file, {
@@ -231,6 +231,34 @@ function UploadTab({ doCreate, stack, setStack, designSystem }: Props) {
     doCreate(images, inputMode, "");
   };
 
+  // 处理粘贴事件
+  const handlePaste = useCallback(
+    async (e: React.ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      const imageFiles: File[] = [];
+
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        // 检查是否是图片类型
+        if (item.type.startsWith("image/")) {
+          const file = item.getAsFile();
+          if (file) {
+            imageFiles.push(file);
+          }
+        }
+      }
+
+      if (imageFiles.length > 0) {
+        e.preventDefault();
+        await handleAddFiles(imageFiles);
+        toast.success(`Pasted ${imageFiles.length} image(s)`);
+      }
+    },
+    [handleAddFiles]
+  );
+
   const handleRemoveImage = (index: number) => {
     if (uploadedInputMode === "video" || files.length === 1) {
       handleClear();
@@ -258,7 +286,12 @@ function UploadTab({ doCreate, stack, setStack, designSystem }: Props) {
   return (
     <div className="flex flex-col items-center gap-6">
       {screenRecorderState === ScreenRecorderState.INITIAL && !hasUploadedFile && (
-        <div {...getRootProps({ className: dropzoneClassName })} data-testid="upload-dropzone">
+        <div
+          {...getRootProps({ className: dropzoneClassName })}
+          data-testid="upload-dropzone"
+          onPaste={handlePaste}
+          tabIndex={0}
+        >
           <input data-testid="upload-input" {...getInputProps()} />
           <div className="flex flex-col items-center gap-3">
             <div className="w-16 h-16 rounded-full bg-gray-100 dark:bg-zinc-800 flex items-center justify-center">
@@ -282,6 +315,9 @@ function UploadTab({ doCreate, stack, setStack, designSystem }: Props) {
             <div className="text-center">
               <p className="text-gray-700 dark:text-zinc-200 font-medium">
                 Drop screenshots or a single video
+              </p>
+              <p className="text-sm text-gray-500 dark:text-zinc-400 mt-1">
+                or press <kbd className="px-1.5 py-0.5 text-xs font-semibold text-gray-800 dark:text-zinc-200 bg-gray-100 dark:bg-zinc-700 border border-gray-200 dark:border-zinc-600 rounded">Ctrl+V</kbd> to paste from clipboard
               </p>
             </div>
             <p className="text-xs text-gray-400 dark:text-zinc-500 mt-2">
@@ -326,6 +362,8 @@ function UploadTab({ doCreate, stack, setStack, designSystem }: Props) {
                     isDragActive ? "ring-2 ring-blue-200 dark:ring-blue-800" : ""
                   }`,
                 })}
+                onPaste={handlePaste}
+                tabIndex={0}
               >
                 <input {...getInputProps()} />
                 <div className="flex items-center justify-between text-xs uppercase tracking-wide text-gray-400 dark:text-zinc-500" onClick={(e) => e.stopPropagation()}>
@@ -391,7 +429,7 @@ function UploadTab({ doCreate, stack, setStack, designSystem }: Props) {
                   </button>
                 </div>
                 <div className="mt-2 text-xs text-gray-400 dark:text-zinc-500" onClick={(e) => e.stopPropagation()}>
-                  Drag and drop to add more screenshots
+                  Drag and drop or press <kbd className="px-1 py-0.5 text-xs font-semibold text-gray-800 dark:text-zinc-200 bg-gray-100 dark:bg-zinc-700 border border-gray-200 dark:border-zinc-600 rounded">Ctrl+V</kbd> to add more screenshots
                 </div>
                 {isDragActive && (
                   <div className="absolute inset-0 bg-blue-50/80 dark:bg-blue-950/80 border-2 border-dashed border-blue-300 dark:border-blue-700 rounded-lg flex items-center justify-center pointer-events-none">

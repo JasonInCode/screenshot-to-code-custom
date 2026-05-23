@@ -187,6 +187,55 @@ function ImageUpload({ setReferenceImages, onUploadStateChange, stack, setStack 
       },
     });
 
+  // 处理粘贴事件
+  const handlePaste = useCallback(
+    async (e: React.ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      const imageFiles: File[] = [];
+
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        // 检查是否是图片类型
+        if (item.type.startsWith("image/")) {
+          const file = item.getAsFile();
+          if (file) {
+            imageFiles.push(file);
+          }
+        }
+      }
+
+      if (imageFiles.length > 0) {
+        e.preventDefault();
+        // Set up the preview thumbnail images
+        setFiles(
+          imageFiles.map((file: File) =>
+            Object.assign(file, {
+              preview: URL.createObjectURL(file),
+            })
+          ) as FileWithPreview[]
+        );
+
+        // Convert images to data URLs
+        try {
+          const dataUrls = await Promise.all(imageFiles.map((file) => fileToDataURL(file)));
+          if (dataUrls.length > 0) {
+            setUploadedDataUrls(dataUrls as string[]);
+            setUploadedInputMode("image");
+            // Focus the text input after upload
+            setTimeout(() => textInputRef.current?.focus(), 100);
+            toast.success(`Pasted ${imageFiles.length} image(s)`);
+          }
+        } catch (error) {
+          toast.error("Error reading pasted images");
+          console.error("Error reading pasted images:", error);
+        }
+      }
+    },
+    []
+  );
+
   useEffect(() => {
     return () => files.forEach((file) => URL.revokeObjectURL(file.preview));
   }, [files]);
@@ -212,18 +261,22 @@ function ImageUpload({ setReferenceImages, onUploadStateChange, stack, setStack 
   return (
     <section className="container">
       {screenRecorderState === ScreenRecorderState.INITIAL && !hasUploadedFile && (
-        /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
-        <div {...getRootProps({ style: style as any })}>
+        <div
+          {...getRootProps({ style: style as React.CSSProperties })}
+          onPaste={handlePaste}
+          tabIndex={0}
+        >
           <input {...getInputProps()} className="file-input" />
           <p className="text-slate-700 text-lg">
             Drag & drop a screenshot here, <br />
-            or click to upload
+            or click to upload, <br />
+            or press <kbd className="px-1.5 py-0.5 text-xs font-semibold text-gray-800 bg-gray-100 border border-gray-200 rounded">Ctrl+V</kbd> to paste
           </p>
         </div>
       )}
 
       {hasUploadedFile && (
-        <div className="flex flex-col items-center gap-4 w-4/5 mx-auto">
+        <div className="flex flex-col items-center gap-4 w-4/5 mx-auto" onPaste={handlePaste} tabIndex={0}>
           {/* Image/Video Preview */}
           <div className="relative w-full max-w-2xl">
             {uploadedInputMode === "video" ? (
