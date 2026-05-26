@@ -23,7 +23,7 @@ A simple tool to convert screenshots, mockups and Figma designs into clean, func
 - **Image uploads & preview** — Upload as many screenshots as you need (no limit). Supports drag-and-drop, file picker, and clipboard paste (Ctrl+V). Click any uploaded image to view it in a full-screen lightbox with zoom controls.
 - **Download button always visible** — The download button is shown at all times (even during generation), allowing you to download incomplete code at any stage.
 - **Custom image generation settings** — Configure your own image generation Provider (OpenAI-compatible or DashScope native), Base URL, API Key, and Model in Settings > Image Generation. Supports DashScope/TokenPlan models with rate-limit retry (exponential backoff, 10 retries on 429).
-- **One-click startup script** — Run `python start.py` to kill existing processes on configured ports and launch frontend + backend in separate terminal windows with live logs. Supports `--frontend-port` and `--backend-port` flags.
+- **One-click startup script** — Run `start.bat` to kill existing processes on configured ports and launch frontend + backend in separate cmd windows with live logs. Supports custom port arguments.
 
 https://github.com/user-attachments/assets/85b911c0-efea-4957-badb-daa97ec402ad
 
@@ -70,14 +70,14 @@ Keys needed:
 
 **Quick start (Windows):**
 
-```bash
-python start.py
+```cmd
+start.bat
 ```
 
-This kills existing processes on ports 5173/7001, then opens two terminal windows for frontend and backend with live logs. You can customize ports:
+This kills existing processes on ports 5173/7001, then opens two cmd windows for frontend and backend with live logs. You can customize ports:
 
-```bash
-python start.py --frontend-port 3000 --backend-port 8000
+```cmd
+start.bat 3000 8000
 ```
 
 **Manual start:**
