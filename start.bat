@@ -35,8 +35,8 @@ set "FRONTEND_DIR=%PROJECT_DIR%frontend"
 echo.
 echo Launching backend (port %BACKEND_PORT%) + frontend (port %FRONTEND_PORT%)...
 
-start "Backend :%BACKEND_PORT%" cmd /k "set PYTHONIOENCODING=utf-8 && set IS_DEBUG_ENABLED=True && cd /d "%BACKEND_DIR%" && poetry run uvicorn main:app --port %BACKEND_PORT% --reload"
-start "Frontend :%FRONTEND_PORT%" cmd /k "cd /d "%FRONTEND_DIR%" && pnpm run dev -- --port %FRONTEND_PORT%"
+start "Backend :%BACKEND_PORT%" cmd /k "set PYTHONIOENCODING=utf-8 && set IS_DEBUG_ENABLED=True && cd /d "%BACKEND_DIR%" && python -m poetry run uvicorn main:app --port %BACKEND_PORT% --reload"
+start "Frontend :%FRONTEND_PORT%" cmd /k "cd /d "%FRONTEND_DIR%" && pnpm install && pnpm run dev -- --port %FRONTEND_PORT%"
 
 echo.
 echo Startup complete!
