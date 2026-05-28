@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { generateCode } from "./generateCode";
+import { generateCode, reconnectSession } from "./generateCode";
 import { AppState, AppTheme, EditorTheme, Settings } from "./types";
 import { NEW_DESIGN_SYSTEM_CONTENT } from "./lib/design-systems";
 import { IS_RUNNING_ON_CLOUD } from "./config";
@@ -80,6 +80,8 @@ function App() {
     setAppState,
     selectedElement,
     setSelectedElement,
+    isReconnecting,
+    setReconnecting,
   } = useAppStore();
 
   // Settings
@@ -118,6 +120,10 @@ function App() {
   );
 
   const wsRef = useRef<WebSocket>(null);
+  const sessionIdRef = useRef<string | null>(null);
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reconnectAttemptRef = useRef(0);
+  const RECONNECT_INTERVAL_MS = 1000;
   const lastThinkingEventIdRef = useRef<Record<number, string>>({});
   const lastAssistantEventIdRef = useRef<Record<number, string>>({});
   const lastToolEventIdRef = useRef<Record<number, string>>({});
@@ -279,8 +285,26 @@ function App() {
 
   const getAssetsById = () => useProjectStore.getState().assetsById;
 
+  // 取消重连尝试
+  const cancelReconnect = () => {
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
+    reconnectAttemptRef.current = 0;
+    setReconnecting(false);
+  };
+
   // Functions
   const reset = () => {
+    cancelReconnect();
+    if (
+      wsRef.current &&
+      (wsRef.current.readyState === WebSocket.OPEN ||
+        wsRef.current.readyState === WebSocket.CONNECTING)
+    ) {
+      wsRef.current.close();
+    }
     setAppState(AppState.INITIAL);
     setUpdateInstruction("");
     setUpdateImages([]);
@@ -363,6 +387,7 @@ function App() {
 
     // 构建请求参数：只生成 1 个 variant
     const currentInputMode = useProjectStore.getState().inputMode;
+    const retrySessionId = nanoid();
     const updatedParams = {
       generationType: "create" as const,
       inputMode: currentInputMode,
@@ -375,6 +400,7 @@ function App() {
       designSystem: selectedDesignSystem?.content ?? null,
       numVariants: 1,
       retryVariantIndex: variantIndex,
+      sessionId: retrySessionId,
     };
 
     generateCode(wsRef, updatedParams, {
@@ -453,7 +479,11 @@ function App() {
       onCancel: () => {
         updateVariantStatus(head, variantIndex, "cancelled");
       },
+      onConnectionLost: (sid) => {
+        doReconnect(sid);
+      },
       onComplete: () => {
+        cancelReconnect();
         setAppState(AppState.CODE_READY);
       },
     });
@@ -461,6 +491,7 @@ function App() {
 
   // Used when the user cancels the code generation
   const cancelCodeGeneration = () => {
+    cancelReconnect();
     wsRef.current?.close?.(USER_CLOSE_WEB_SOCKET_CODE);
   };
 
@@ -485,12 +516,111 @@ function App() {
     }
   };
 
+  // 断线重连：用固定间隔（1秒）无限重试连接 /reconnect 端点
+  const doReconnect = (sessionId: string) => {
+    // 用户已取消或已重置，不再重连
+    if (useAppStore.getState().appState !== AppState.CODING) return;
+
+    reconnectAttemptRef.current += 1;
+    setReconnecting(true);
+    console.log(`🔄 重连尝试 #${reconnectAttemptRef.current}...`);
+
+    reconnectTimeoutRef.current = setTimeout(() => {
+      if (useAppStore.getState().appState !== AppState.CODING) return;
+
+      reconnectSession(wsRef, sessionId, {
+        onChange: (token, variantIndex) => {
+          const headHash = useProjectStore.getState().head;
+          if (headHash) appendCommitCode(headHash, variantIndex, token);
+        },
+        onSetCode: (code, variantIndex) => {
+          const headHash = useProjectStore.getState().head;
+          if (headHash) setCommitCode(headHash, variantIndex, code);
+        },
+        onStatusUpdate: (line, variantIndex) =>
+          appendExecutionConsole(variantIndex, line),
+        onVariantComplete: (variantIndex) => {
+          const headHash = useProjectStore.getState().head;
+          if (headHash) {
+            updateVariantStatus(headHash, variantIndex, "complete");
+            const currentCode =
+              useProjectStore.getState().commits[headHash]?.variants[variantIndex]
+                ?.code || "";
+            if (currentCode.trim().length > 0) {
+              appendVariantHistoryMessage(
+                headHash,
+                variantIndex,
+                buildAssistantHistoryMessage(currentCode)
+              );
+            }
+          }
+        },
+        onVariantError: (variantIndex, error) => {
+          const headHash = useProjectStore.getState().head;
+          if (headHash) {
+            updateVariantStatus(headHash, variantIndex, "error", error);
+          }
+        },
+        onVariantCount: (count) => {
+          const headHash = useProjectStore.getState().head;
+          if (headHash) resizeVariants(headHash, count);
+        },
+        onVariantModels: (models) => {
+          const headHash = useProjectStore.getState().head;
+          if (headHash) setVariantModels(headHash, models);
+        },
+        onThinking: () => {},
+        onAssistant: () => {},
+        onToolStart: () => {},
+        onToolResult: () => {},
+        onCancel: (reason, errorMessage) => {
+          setReconnecting(false);
+          const headHash = useProjectStore.getState().head;
+          if (!headHash) return;
+          const commit = useProjectStore.getState().commits[headHash];
+          if (!commit) return;
+
+          if (reason === "request_failed" && commit.type === "ai_create") {
+            commit.variants.forEach((variant, variantIndex) => {
+              if (variant.status === "generating") {
+                updateVariantStatus(
+                  headHash,
+                  variantIndex,
+                  "error",
+                  errorMessage || "Session expired. Please retry."
+                );
+              }
+            });
+            setAppState(AppState.CODE_READY);
+            return;
+          }
+
+          cancelCodeGenerationAndReset(commit);
+        },
+        onConnectionLost: (sid) => {
+          // 重连后又断开，继续重连
+          doReconnect(sid);
+        },
+        onComplete: () => {
+          setReconnecting(false);
+          reconnectAttemptRef.current = 0;
+          setAppState(AppState.CODE_READY);
+        },
+      });
+    }, RECONNECT_INTERVAL_MS);
+  };
+
   function doGenerateCode(params: GenerationRequest) {
     // Reset the execution console
     resetExecutionConsoles();
+    cancelReconnect();
 
     // Set the app state to coding during generation
     setAppState(AppState.CODING);
+
+    // 生成会话 ID 用于断线重连
+    const sessionId = nanoid();
+    sessionIdRef.current = sessionId;
 
     const { variantHistory, ...requestParams } = params;
 
@@ -503,6 +633,7 @@ function App() {
       ...requestParams,
       ...settings,
       designSystem: selectedDesignSystem?.content ?? null,
+      sessionId,
     };
 
     // Use configured variants for create, 2 for edits to match backend counts
@@ -722,8 +853,14 @@ function App() {
 
         cancelCodeGenerationAndReset(commit);
       },
+      onConnectionLost: (sid) => {
+        // 连接断开，启动重连
+        finishInFlightEvents("complete");
+        doReconnect(sid);
+      },
       onComplete: () => {
         finishInFlightEvents("complete");
+        cancelReconnect();
         setAppState(AppState.CODE_READY);
       },
     });
@@ -930,6 +1067,33 @@ function App() {
           open={!settings.isTermOfServiceAccepted}
           onOpenChange={handleTermDialogOpenChange}
         />
+      )}
+
+      {/* 断线重连指示器 */}
+      {isReconnecting && (
+        <div className="fixed top-0 left-0 right-0 z-[100] flex items-center justify-center gap-2 bg-amber-500 px-4 py-2 text-sm font-medium text-white shadow-lg">
+          <svg
+            className="h-4 w-4 animate-spin"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+          >
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+            />
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+            />
+          </svg>
+          Connection lost. Reconnecting...
+        </div>
       )}
 
       {/* Icon strip - always visible */}

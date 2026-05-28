@@ -6,6 +6,10 @@ interface AppStore {
   appState: AppState;
   setAppState: (state: AppState) => void;
 
+  // 断线重连状态
+  isReconnecting: boolean;
+  setReconnecting: (reconnecting: boolean) => void;
+
   // UI state
   updateInstruction: string;
   setUpdateInstruction: (instruction: string) => void;
@@ -26,6 +30,11 @@ interface AppStore {
 export const useAppStore = create<AppStore>((set) => ({
   appState: AppState.INITIAL,
   setAppState: (state: AppState) => set({ appState: state }),
+
+  // 断线重连状态
+  isReconnecting: false,
+  setReconnecting: (reconnecting: boolean) =>
+    set({ isReconnecting: reconnecting }),
 
   // UI state
   updateInstruction: "",

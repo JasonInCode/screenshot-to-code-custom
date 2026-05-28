@@ -96,6 +96,7 @@ export interface CodeGenerationParams {
   };
   optionCodes?: string[];
   retryVariantIndex?: number;
+  sessionId?: string;
 }
 
 export type FullGenerationSettings = CodeGenerationParams &

@@ -68,6 +68,7 @@ from routes.model_choice_sets import (
     OPENAI_ONLY_MODELS,
     VIDEO_VARIANT_MODELS,
 )
+from routes.session_manager import session_manager, GenerationSession
 
 # from utils import pprint_prompt
 from ws.constants import APP_ERROR_WEB_SOCKET_CODE  # type: ignore
@@ -89,6 +90,7 @@ class PipelineContext:
     completions: List[str] = field(default_factory=list)
     variant_completions: Dict[int, str] = field(default_factory=dict)
     metadata: Dict[str, Any] = field(default_factory=dict)
+    session: "GenerationSession | None" = None
 
     @property
     def send_message(self):
@@ -608,6 +610,23 @@ class PostProcessingStage:
         return None
 
 
+async def heartbeat_loop(session: "GenerationSession") -> None:
+    """每秒向客户端发送心跳，保持连接活跃并及早发现断连"""
+    try:
+        while not session.is_done():
+            await asyncio.sleep(1)
+            if not session.is_connected:
+                continue
+            try:
+                await session.send("ping", None, 0)
+            except Exception:
+                pass
+    except asyncio.CancelledError:
+        pass
+    except Exception as e:
+        print(f"💓 心跳循环异常退出: {e}")
+
+
 class AgenticGenerationStage:
     """Handles agent tool-calling generation for each variant."""
 
@@ -630,6 +649,7 @@ class AgenticGenerationStage:
         image_generation_api_key: str | None = None,
         image_generation_model: str | None = None,
         image_generation_provider: str | None = None,
+        session: "GenerationSession | None" = None,
     ):
         self.send_message = send_message
         self.openai_api_key = openai_api_key
@@ -648,6 +668,7 @@ class AgenticGenerationStage:
         self.image_generation_api_key = image_generation_api_key
         self.image_generation_model = image_generation_model
         self.image_generation_provider = image_generation_provider
+        self.session = session
 
     async def process_variants(
         self,
@@ -687,6 +708,9 @@ class AgenticGenerationStage:
                 data: Dict[str, Any] | None,
                 event_id: str | None,
             ) -> None:
+                # 更新会话状态（用于断线重连后重放）
+                if self.session is not None:
+                    self.session.update_state(type, value, variant_index)
                 await self.send_message(
                     cast(MessageType, type),
                     value,
@@ -806,6 +830,14 @@ class ParameterExtractionMiddleware(Middleware):
             context.params
         )
 
+        # 创建会话（支持断线重连）
+        session_id = context.params.get("sessionId")
+        if session_id:
+            context.session = session_manager.create_session(
+                session_id, context.params
+            )
+            context.session.set_websocket(context.websocket)
+
         # Log what we're generating
         print(
             f"Generating {context.extracted_params.stack} code in {context.extracted_params.input_mode} mode"
@@ -831,11 +863,16 @@ class StatusBroadcastMiddleware(Middleware):
             else context.extracted_params.num_variants
         )
 
+        # 通过会话发送（支持断线重连），并追踪状态
+        send = context.session.send if context.session else context.send_message
+        if context.session:
+            context.session.update_state("variantCount", str(num_variants), 0)
+
         # Tell frontend how many variants we're using
-        await context.send_message("variantCount", str(num_variants), 0)
+        await send("variantCount", str(num_variants), 0)
 
         for i in range(num_variants):
-            await context.send_message("status", "Generating code...", i)
+            await send("status", "Generating code...", i)
 
         await next_func()
 
@@ -860,6 +897,25 @@ class CodeGenerationMiddleware(Middleware):
     async def process(
         self, context: PipelineContext, next_func: Callable[[], Awaitable[None]]
     ) -> None:
+        session = context.session
+        heartbeat_task = None
+
+        # 发送函数：追踪状态 + 通过会话发送
+        async def send_for_generation(
+            msg_type: MessageType, value: str | None,
+            variant_index: int,
+            data: Dict[str, Any] | None = None,
+            event_id: str | None = None,
+        ) -> None:
+            if session is not None:
+                session.update_state(msg_type, value, variant_index)
+            if msg_type == "error" and value:
+                print(f"❌ Error (variant {variant_index + 1}): {value}")
+            if session is not None:
+                await session.send(msg_type, value, variant_index, data, event_id)
+            else:
+                await context.send_message(msg_type, value, variant_index, data, event_id)
+
         try:
             assert context.extracted_params is not None
 
@@ -875,8 +931,17 @@ class CodeGenerationMiddleware(Middleware):
                 selected_api_provider=context.extracted_params.selected_api_provider,
                 num_variants=context.extracted_params.num_variants,
             )
+
+            # 启动心跳
+            if session is not None:
+                session.variant_models = [
+                    m if isinstance(m, str) else m.value
+                    for m in context.variant_models
+                ]
+                heartbeat_task = asyncio.create_task(heartbeat_loop(session))
+
             if IS_DEBUG_ENABLED:
-                await context.send_message(
+                await send_for_generation(
                     "variantModels",
                     None,
                     0,
@@ -885,7 +950,7 @@ class CodeGenerationMiddleware(Middleware):
                 )
 
             generation_stage = AgenticGenerationStage(
-                send_message=context.send_message,
+                send_message=send_for_generation,
                 openai_api_key=context.extracted_params.openai_api_key,
                 openai_base_url=context.extracted_params.openai_base_url,
                 anthropic_api_key=context.extracted_params.anthropic_api_key,
@@ -902,6 +967,7 @@ class CodeGenerationMiddleware(Middleware):
                 image_generation_api_key=context.extracted_params.image_generation_api_key,
                 image_generation_model=context.extracted_params.image_generation_model,
                 image_generation_provider=context.extracted_params.image_generation_provider,
+                session=session,
             )
 
             context.variant_completions = await generation_stage.process_variants(
@@ -928,6 +994,16 @@ class CodeGenerationMiddleware(Middleware):
             print(f"[GENERATE_CODE] Unexpected error: {e}")
             await context.throw_error(f"An unexpected error occurred: {str(e)}")
             return  # Don't continue the pipeline
+
+        finally:
+            # 标记会话完成，等待心跳退出
+            if session is not None:
+                session.mark_done()
+            if heartbeat_task is not None:
+                try:
+                    await asyncio.wait_for(heartbeat_task, timeout=3.0)
+                except (asyncio.TimeoutError, asyncio.CancelledError):
+                    heartbeat_task.cancel()
 
         await next_func()
 
@@ -961,3 +1037,103 @@ async def stream_code(websocket: WebSocket):
 
     # Execute the pipeline
     await pipeline.execute(websocket)
+
+
+@router.websocket("/reconnect")
+async def reconnect(websocket: WebSocket):
+    """处理 WebSocket 断线重连，恢复生成状态并继续推送"""
+    await websocket.accept()
+    try:
+        data = await websocket.receive_json()
+        session_id = data.get("session_id")
+
+        session = session_manager.get_session(session_id) if session_id else None
+        if session is None:
+            print(f"❌ 重连失败: 会话不存在 ({session_id[:8] if session_id else 'None'})")
+            await websocket.send_json({
+                "type": "error",
+                "value": "Generation session not found or expired. Please start a new generation.",
+                "variantIndex": 0,
+            })
+            await websocket.close(APP_ERROR_WEB_SOCKET_CODE)
+            return
+
+        print(f"🔄 重连成功: session={session_id[:8]}...")
+
+        # 关闭旧连接，绑定新连接
+        if session.websocket is not None and session.websocket is not websocket:
+            try:
+                await session.websocket.close()
+            except Exception:
+                pass
+        session.set_websocket(websocket)
+
+        # 重放当前状态
+        await websocket.send_json({
+            "type": "status",
+            "value": "Reconnected, resuming...",
+            "variantIndex": 0,
+        })
+
+        if session.variant_count > 0:
+            await websocket.send_json({
+                "type": "variantCount",
+                "value": str(session.variant_count),
+                "variantIndex": 0,
+            })
+
+        if session.variant_models:
+            await websocket.send_json({
+                "type": "variantModels",
+                "value": None,
+                "variantIndex": 0,
+                "data": {"models": session.variant_models},
+            })
+
+        for vi, code in session.variant_codes.items():
+            if code:
+                await websocket.send_json({
+                    "type": "setCode",
+                    "value": code,
+                    "variantIndex": vi,
+                })
+
+        for vi, status in session.variant_statuses.items():
+            if status == "complete":
+                await websocket.send_json({
+                    "type": "variantComplete",
+                    "value": "Variant complete",
+                    "variantIndex": vi,
+                })
+            elif status == "error":
+                await websocket.send_json({
+                    "type": "variantError",
+                    "value": session.variant_errors.get(vi, "Generation error"),
+                    "variantIndex": vi,
+                })
+
+        # 如果会话已完成，直接关闭
+        if session.is_done():
+            await websocket.close()
+            return
+
+        # 继续心跳并等待会话完成
+        heartbeat_task = asyncio.create_task(heartbeat_loop(session))
+        await session.wait_until_done()
+        session.mark_done()
+        try:
+            await asyncio.wait_for(heartbeat_task, timeout=3.0)
+        except (asyncio.TimeoutError, asyncio.CancelledError):
+            heartbeat_task.cancel()
+
+        await websocket.close()
+
+    except (ConnectionClosedOK, ConnectionClosedError):
+        print(f"🔌 重连 WebSocket 已关闭")
+    except Exception as e:
+        print(f"❌ 重连异常: {e}")
+        traceback.print_exc()
+        try:
+            await websocket.close()
+        except Exception:
+            pass
